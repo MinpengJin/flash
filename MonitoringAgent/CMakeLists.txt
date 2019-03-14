@@ -1,0 +1,2 @@
+PROJECT(Flash)
+ADD_SUBDIRECTORY(src bin)

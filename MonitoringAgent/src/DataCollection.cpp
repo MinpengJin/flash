@@ -1,60 +1,9 @@
 #include<iostream>
-#include<fstream>
-#include<ctime>
-#include<string>
-#include<map>
 #include<sstream>
-#include<vector>
-#include<stdlib.h>
+#include<json/json.h>
+#include<Python.h>
+#include"../include/DataCollection.h"
 using namespace std;
-
-const int CORE_NUM = 1;                                         // 宿主机CPU核数
-
-struct preContainerData                                         // 前一个时间的容器监控数据
-{
-    time_t preTime;                                             // 上一次容器状态更新时间戳
-    unsigned long long containerTimeSlice, totalTimeSlice;      // 容器使用时间片和机器总的时间片
-    unsigned long long diskRead, diskWrite;                     // 磁盘读速率和写速率
-    unsigned long long netReceive, netTransmit;                 // 网络接收和发送字节数
-};
-
-
-class DataCollection{
-private:
-    fstream fs;
-    string ContainerID;
-    map<string, preContainerData> ContainerDataList;            // 前一个时间的容器监控数据列表
-
-    void openFile(string fileName);                             // 打开指定文件
-    void closeFile();                                           // 关闭当前打开的文件
-
-    vector<string> split(const char* buffer);                   // 以空格为分隔符来分割字符串
-    string getConPID();                                         // 获取指定容器id的容器进程号
-
-    unsigned long long readSimpleData(string fileName);         // 读取不需要进行分割处理的文件数据流
-    unsigned long long readConTimeSlice();                      // 读取容器使用CPU时间片
-    unsigned long long readTotalTimeSlice();                    // 读取机器总的CPU时间片
-    unsigned long long readMemUsed();                           // 读取容器已经使用的内存
-    unsigned long long readMemLimit();                          // 读取机器分配给容器的内存
-    unsigned long long *readDiskData();                         // 读取磁盘的读写数据,第一个值为读字节数，第二个值为写字节数
-    unsigned long long *readNetData();                          // 读取网络接收和发送字节数，第一个值为接收字节数，第二个值为发送字节数
-
-    float cpuUsage();                                           // 计算CPU使用率
-    float memUsage();                                           // 计算内存使用率
-    float* diskRate();                                          // 计算磁盘读速率和写速率，第一个值为读速率，第二个值为写速率
-    float* netRate();                                           // 计算网络接收速率和发送速率，第一个值为接受速率，第二个值为发送速率
-
-public:
-    DataCollection(string ContainerID);                         // 构造函数
-    ~DataCollection();                                          // 析构函数，关闭当前打开的文件
-
-    // interface for the ContainerSelection module
-    void updateContainerStatus();                               // 添加或者更新指定的容器状态到容器状态列表中
-    void eraseContainerStatus();                                // 在容器状态列表中删除指定容器状态
-
-    void processData();                                         // 将指定容器的监控数据转换成json格式
-};
-
 
 DataCollection::DataCollection(string ContainerID){
     this->ContainerID = ContainerID;
@@ -162,9 +111,47 @@ unsigned long long *DataCollection::readDiskData(){
 }
 
 
-// todo: 获取容器进程的pid
 string DataCollection::getConPID(){
-
+    string pid;
+    PyObject *pModule,*pFunc;
+    PyObject *pArgs, *pValue;
+    // 对python初始化 
+    Py_Initialize(); 
+    if(!Py_IsInitialized()){
+        cout << "init faild/n" << endl;
+        exit(1);
+    }else{
+        // 设置python文件路径 
+        PyRun_SimpleString("import sys");
+        PyRun_SimpleString("sys.path.append('../src/python')");
+        // 加载模块 
+        pModule = PyImport_ImportModule("containerPID");
+        if(!pModule){
+            cout << "module failed!" << endl;
+        }else
+        {
+            // 加载函数 
+            pFunc = PyObject_GetAttrString(pModule, "getContainerPID");
+            if(!pFunc || !PyCallable_Check(pFunc)){
+                cout << "can not find function!" << endl;
+            }else{
+                // 设置参数 
+                pArgs = PyTuple_New(1);
+                const char *id = this->ContainerID.c_str();
+                PyTuple_SetItem(pArgs, 0, Py_BuildValue("s", id));
+                // 调用函数 
+                pValue = PyEval_CallObject(pFunc, pArgs);
+                int temp;
+                PyArg_Parse(pValue, "i", &temp);
+                stringstream ss;
+                ss << temp;
+                pid = temp.str();
+            }
+        }
+        Py_Finalize(); 
+    }
+    
+    return pid;
 }
 
 
@@ -189,18 +176,20 @@ unsigned long long *DataCollection::readNetData(){
 }
 
 
-float DataCollection::cpuUsage(){
+float DataCollection::getCpuLoadAvg(){
     float cpuUsage;
     unsigned long long preConTimeSlice = ContainerDataList[ContainerID].containerTimeSlice;
     unsigned long long preTotalTimeSlice = ContainerDataList[ContainerID].totalTimeSlice;
     unsigned long long nowConTimeSlice = readConTimeSlice();
     unsigned long long nowTotalTimeSlice = readTotalTimeSlice();
     cpuUsage = ((nowConTimeSlice - preConTimeSlice)/(nowTotalTimeSlice - preTotalTimeSlice))*CORE_NUM*100;
+    ContainerDataList[ContainerID].containerTimeSlice = nowConTimeSlice;
+    ContainerDataList[ContainerID].totalTimeSlice = nowTotalTimeSlice;
     return cpuUsage;
 }
 
 
-float DataCollection::memUsage(){
+float DataCollection::getMemLoadAvg(){
     float memUsage;
     unsigned long long memUsed = readMemUsed();
     unsigned long long memLimit = readMemLimit();
@@ -209,7 +198,7 @@ float DataCollection::memUsage(){
 }
 
 
-float *DataCollection::diskRate(){
+float *DataCollection::getDiskRateAvg(){
     float *diskRate = new float[2];
     unsigned long long *diskData = readDiskData();
     time_t nowTime = time(NULL);
@@ -223,11 +212,13 @@ float *DataCollection::diskRate(){
     unsigned long long preWriteBytes = ContainerDataList[ContainerID].diskWrite;
     diskRate[1] = ((nowWriteBytes - preWriteBytes)/(nowTime - preTime))*100;
     delete[] diskData;
+    ContainerDataList[ContainerID].diskRead = nowReadBytes;
+    ContainerDataList[ContainerID].diskWrite = nowWriteBytes;
     return diskRate;
 }
 
 
-float *DataCollection::netRate(){
+float *DataCollection::getNetRateAvg(){
     float *netRate = new float[2];
     unsigned long long *netData = readNetData();
     time_t nowTime = time(NULL);
@@ -241,6 +232,9 @@ float *DataCollection::netRate(){
     unsigned long long preTransmitBytes = ContainerDataList[ContainerID].netTransmit;
     netRate[1] = ((nowTransmitBytes - preTransmitBytes)/(nowTime - preTime))*100;
     delete[] netData;
+    ContainerDataList[ContainerID].preTime = nowTime;
+    ContainerDataList[ContainerID].netReceive = nowReceiveBytes;
+    ContainerDataList[ContainerID].netTransmit = nowTransmitBytes;
     return netRate;
 }
 
@@ -269,5 +263,21 @@ void DataCollection::eraseContainerStatus(){
 
 
 void DataCollection::processData(){
-
+    Json::Value root;
+    Json::StyledWriter styled_writer;
+    root["ContainerID"] = this->ContainerID;
+    root["Timestamp"] = time(NULL);
+    root["CpuLoadAvg"] = getCpuLoadAvg();
+    root["MemLoadAvg"] = getMemLoadAvg();
+    float *diskRate = getDiskRateAvg();
+    root["DiskReadAvg"] = diskRate[0];
+    root["DiskWriteAvg"] = diskRate[1];
+    delete[] diskRate;
+    float *netRate = getNetRateAvg();
+    root["NetReceiveAvg"] = netRate[0];
+    root["NetTransmitAvg"] = netRate[1];
+    delete[] netRate;
+    string processedData = styled_writer.write(root);
+    // todo:调用传输模块接口，将json数据传输给监控服务器
+    
 }
