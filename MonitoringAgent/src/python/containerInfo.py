@@ -7,6 +7,7 @@ import _thread
 containerList = []
 client = docker.APIClient(base_url='unix://var/run/docker.sock')
 
+# 收集在指定时间内启动的容器
 def start(sinceTime, untilTime):
 	events = client.events(since=sinceTime, until=untilTime, filters={'event': 'start'})
 	for event in events:
@@ -15,6 +16,7 @@ def start(sinceTime, untilTime):
 		containerList.append(temp)
 	events.close()
 
+# 收集在指定容器内关闭的容器
 def stop(sinceTime, untilTime):
 	events = client.events(since=sinceTime, until=untilTime, filters={'event': 'stop'})
 	for event in events:
@@ -30,7 +32,7 @@ def stop(sinceTime, untilTime):
 			containerList.append(temp)
 	events.close()
 
-
+# 将收集的容器信息转换成jsoncpp能够解析的字符串格式
 def toString(containerItem):
 	containerId = containerItem['id']
 	status = containerItem['status']

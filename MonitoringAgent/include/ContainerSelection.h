@@ -25,18 +25,18 @@ struct ContainerItem
 class ContainerSelection{
 
 private:
-    vector<ContainerItem> ContainerList;                        // 待监控容器队列
+    vector<ContainerItem> ContainerList;                            // 待监控容器队列
 
 public:
     ContainerSelection();
     ~ContainerSelection();
     
     // interface for ContainerInfoCollection module
-    void adjustContainerList(string ContainerID, string status);     // 根据容器信息搜集模块传入的数据调整待监控容器队列; 
-                                                                // type为1表示start,type为0表示stop
+    void adjustContainerList(string ContainerID, string status);    // 根据容器信息搜集模块传入的数据调整待监控容器队列; 
+                                                                    // type为1表示start,type为0表示stop
     // interface for Transmission module
-    void adjustContainerCycle(string ContainerID, int cycle);   // 根据监控服务器发送的信息调整容器的监控周期
-    void runContainerSelection();                               // 运行监控容器选择模块
+    void adjustContainerCycle(string ContainerID, int cycle);        // 根据监控服务器发送的信息调整容器的监控周期
+    void runContainerSelection();                                    // 运行监控容器选择模块
 };
 
 #endif

@@ -40,7 +40,7 @@ void ContainerInfoCollection::runContainerInfoCollection(){
                     // 调用函数
                     pValue = PyEval_CallObject(pFunc, pArgs);
                     const char *listStr;
-                    PyArg_ParseTuple(pValue, "s", &listStr);
+                    PyArg_Parse(pValue, "s", &listStr);
                     stringstream ss;
                     ss.str(listStr);
                     string item;
@@ -59,7 +59,8 @@ void ContainerInfoCollection::runContainerInfoCollection(){
                             status = jsonRoot["status"].asString();
                             // cout << "id:" << item["id"].asString() << " status:" << item["status"].asString() << endl;
                         }
-                        adjustContainerList(containerID, status);
+                        unique_ptr<ContainerSelection> temp(new ContainerSelection());
+                        temp->adjustContainerList(containerID, status);
                     }
                 }
             }
