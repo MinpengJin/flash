@@ -2,7 +2,7 @@
 #include<algorithm>
 #include<unistd.h>
 #include<windows.h>
-#include"DataCollection.h"
+#include"ContainerDataCollection.h"
 using namespace std;
 
 
@@ -32,7 +32,7 @@ public:
     ~ContainerSelection();
     
     // interface for ContainerInfoCollection module
-    void adjustContainerList(string ContainerID, int type);     // 根据容器信息搜集模块传入的数据调整待监控容器队列; 
+    void adjustContainerList(string ContainerID, string status);     // 根据容器信息搜集模块传入的数据调整待监控容器队列; 
                                                                 // type为1表示start,type为0表示stop
     // interface for Transmission module
     void adjustContainerCycle(string ContainerID, int cycle);   // 根据监控服务器发送的信息调整容器的监控周期

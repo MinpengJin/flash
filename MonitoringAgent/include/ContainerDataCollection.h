@@ -29,7 +29,7 @@ struct ProcessedData{
 };
 
 
-class DataCollection{
+class ContainerDataCollection{
 private:
     std::fstream fs;
     std::string ContainerID;
@@ -55,8 +55,8 @@ private:
     float* getNetRateAvg();                                     // 计算网络接收速率和发送速率，第一个值为接受速率，第二个值为发送速率
 
 public:
-    DataCollection(std::string ContainerID);                         // 构造函数
-    ~DataCollection();                                          // 析构函数，关闭当前打开的文件
+    ContainerDataCollection(std::string ContainerID);                         // 构造函数
+    ~ContainerDataCollection();                                          // 析构函数，关闭当前打开的文件
 
     // interface for the ContainerSelection module
     void updateContainerStatus();                               // 添加或者更新指定的容器状态到容器状态列表中

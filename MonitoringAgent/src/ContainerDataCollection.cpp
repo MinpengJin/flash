@@ -2,22 +2,23 @@
 #include<sstream>
 #include<json/json.h>
 #include<Python.h>
-#include"../include/DataCollection.h"
+#include"ContainerDataCollection.h"
+#include"json/json.h"
 using namespace std;
 
-DataCollection::DataCollection(string ContainerID){
+ContainerDataCollection::ContainerDataCollection(string ContainerID){
     this->ContainerID = ContainerID;
 }
 
 
-DataCollection::~DataCollection(){
+ContainerDataCollection::~ContainerDataCollection(){
     if(fs.is_open()){
         fs.close();
     }
 }
 
 
-void DataCollection::openFile(string fileName){
+void ContainerDataCollection::openFile(string fileName){
     if(!fs.is_open()){
         fs.open(fileName);
         if(!fs.is_open()){
@@ -30,14 +31,14 @@ void DataCollection::openFile(string fileName){
 }
 
 
-void DataCollection::closeFile(){
+void ContainerDataCollection::closeFile(){
     if(fs.is_open()){
         fs.close();
     }
 }
 
 
-vector<string> DataCollection::split(const char *buffer){
+vector<string> ContainerDataCollection::split(const char *buffer){
     stringstream ss;
     ss.str(buffer);
     string item;
@@ -48,7 +49,7 @@ vector<string> DataCollection::split(const char *buffer){
     return elems;
 }
 
-unsigned long long DataCollection::readSimpleData(string fileName){
+unsigned long long ContainerDataCollection::readSimpleData(string fileName){
     openFile(fileName);
     unsigned long long data;
     char buffer[256];
@@ -59,13 +60,13 @@ unsigned long long DataCollection::readSimpleData(string fileName){
 }
 
 
-unsigned long long DataCollection::readConTimeSlice(){
+unsigned long long ContainerDataCollection::readConTimeSlice(){
     string fileName = "/sys/fs/cgroup/cpuacct/docker/" + ContainerID + "/cpuacct.usage";
     return readSimpleData(fileName);
 }
 
 
-unsigned long long DataCollection::readTotalTimeSlice(){
+unsigned long long ContainerDataCollection::readTotalTimeSlice(){
     string fileName = "/proc/stat";
     openFile(fileName);
     unsigned long long totalTimeSlice;
@@ -81,19 +82,19 @@ unsigned long long DataCollection::readTotalTimeSlice(){
 }
 
 
-unsigned long long DataCollection::readMemUsed(){
+unsigned long long ContainerDataCollection::readMemUsed(){
     string fileName = "/sys/fs/cgroup/memory/docker/" + ContainerID + "/memory.usage_in_bytes";
     return readSimpleData(fileName);
 }
 
 
-unsigned long long DataCollection::readMemLimit(){
+unsigned long long ContainerDataCollection::readMemLimit(){
     string fileName = "/sys/fs/cgroup/memory/docker/" + ContainerID + "/memory.limit_in_bytes";
     return readSimpleData(fileName);
 }
 
 
-unsigned long long *DataCollection::readDiskData(){
+unsigned long long *ContainerDataCollection::readDiskData(){
     string fileName = "/sys/fs/cgroup/blkio/docker/" + ContainerID + "/blkio.throttle.io_service_bytes";
     openFile(fileName);
     unsigned long long *diskData = new unsigned long long[2];
@@ -111,7 +112,7 @@ unsigned long long *DataCollection::readDiskData(){
 }
 
 
-string DataCollection::getConPID(){
+string ContainerDataCollection::getConPID(){
     string pid;
     PyObject *pModule,*pFunc;
     PyObject *pArgs, *pValue;
@@ -155,7 +156,7 @@ string DataCollection::getConPID(){
 }
 
 
-unsigned long long *DataCollection::readNetData(){
+unsigned long long *ContainerDataCollection::readNetData(){
     string pid = getConPID();
     string fileName = "/proc/" + pid + "/net/dev";
     openFile(fileName);
@@ -176,7 +177,7 @@ unsigned long long *DataCollection::readNetData(){
 }
 
 
-float DataCollection::getCpuLoadAvg(){
+float ContainerDataCollection::getCpuLoadAvg(){
     float cpuUsage;
     unsigned long long preConTimeSlice = ContainerDataList[ContainerID].containerTimeSlice;
     unsigned long long preTotalTimeSlice = ContainerDataList[ContainerID].totalTimeSlice;
@@ -189,7 +190,7 @@ float DataCollection::getCpuLoadAvg(){
 }
 
 
-float DataCollection::getMemLoadAvg(){
+float ContainerDataCollection::getMemLoadAvg(){
     float memUsage;
     unsigned long long memUsed = readMemUsed();
     unsigned long long memLimit = readMemLimit();
@@ -198,7 +199,7 @@ float DataCollection::getMemLoadAvg(){
 }
 
 
-float *DataCollection::getDiskRateAvg(){
+float *ContainerDataCollection::getDiskRateAvg(){
     float *diskRate = new float[2];
     unsigned long long *diskData = readDiskData();
     time_t nowTime = time(NULL);
@@ -218,7 +219,7 @@ float *DataCollection::getDiskRateAvg(){
 }
 
 
-float *DataCollection::getNetRateAvg(){
+float *ContainerDataCollection::getNetRateAvg(){
     float *netRate = new float[2];
     unsigned long long *netData = readNetData();
     time_t nowTime = time(NULL);
@@ -239,7 +240,7 @@ float *DataCollection::getNetRateAvg(){
 }
 
 
-void DataCollection::updateContainerStatus(){
+void ContainerDataCollection::updateContainerStatus(){
     preContainerData tempStatus;
     tempStatus.preTime = time(NULL);
     tempStatus.containerTimeSlice = readConTimeSlice();
@@ -256,15 +257,17 @@ void DataCollection::updateContainerStatus(){
 }
 
 
-void DataCollection::eraseContainerStatus(){
+void ContainerDataCollection::eraseContainerStatus(){
     auto it = ContainerDataList.find(ContainerID);
     ContainerDataList.erase(it);
 }
 
 
-void DataCollection::processData(){
+void ContainerDataCollection::processData(){
+    string processedData;
     Json::Value root;
-    Json::StyledWriter styled_writer;
+    Json::StreamWriterBuilder writerBuilder;
+    ostringstream os;
     root["ContainerID"] = this->ContainerID;
     root["Timestamp"] = time(NULL);
     root["CpuLoadAvg"] = getCpuLoadAvg();
@@ -277,7 +280,9 @@ void DataCollection::processData(){
     root["NetReceiveAvg"] = netRate[0];
     root["NetTransmitAvg"] = netRate[1];
     delete[] netRate;
-    string processedData = styled_writer.write(root);
+    unique_ptr<Json::StreamWriter> jsonWriter(writerBuilder.newStreamWriter());
+    jsonWriter->write(root, &os);
+    processedData = os.str();
     // todo:调用传输模块接口，将json数据传输给监控服务器
     
 }

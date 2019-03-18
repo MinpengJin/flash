@@ -1,5 +1,5 @@
 #include<iostream>
-#include"../include/ContainerSelection.h"
+#include"ContainerSelection.h"
 
 using namespace std;
 
@@ -7,9 +7,9 @@ ContainerSelection::ContainerSelection(){}
 ContainerSelection::~ContainerSelection(){}
 
 
-void ContainerSelection::adjustContainerList(string ContainerID, int type){
-    DataCollection temp(ContainerID);
-    if(type){
+void ContainerSelection::adjustContainerList(string ContainerID, string status){
+    ContainerDataCollection temp(ContainerID);
+    if(status == "start"){
         time_t nowTime = time(NULL);                            // 当前时间的时间戳，单位为秒
         ContainerItem tempItem;
         tempItem.ContainerID = ContainerID;
@@ -52,7 +52,7 @@ void ContainerSelection::runContainerSelection(){
             }else{
                 string ContainerID = it->ContainerID;
                 // 将ContainerID传入数据搜集模块
-                DataCollection temp(ContainerID);
+                ContainerDataCollection temp(ContainerID);
                 temp.processData();
                 it->nextTime = nowTime + it->collectCycle;
                 sort(ContainerList.begin(), ContainerList.end());
