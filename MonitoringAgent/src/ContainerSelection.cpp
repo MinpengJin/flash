@@ -1,15 +1,12 @@
-#include<iostream>
-#include<memory>
 #include"ContainerSelection.h"
 
-using namespace std;
 
 ContainerSelection::ContainerSelection(){}
 ContainerSelection::~ContainerSelection(){}
 
 
-void ContainerSelection::adjustContainerList(string ContainerID, string status){
-    unique_ptr<ContainerDataCollection> temp(new ContainerDataCollection(ContainerID));
+void ContainerSelection::adjustContainerList(std::string ContainerID, std::string status){
+    std::unique_ptr<ContainerDataCollection> temp(new ContainerDataCollection(ContainerID));
     // ContainerDataCollection temp(ContainerID);
     if(status == "start"){
         time_t nowTime = time(NULL);                            // 当前时间的时间戳，单位为秒
@@ -31,7 +28,7 @@ void ContainerSelection::adjustContainerList(string ContainerID, string status){
 }
 
 
-void ContainerSelection::adjustContainerCycle(string ContainerID, int cycle){
+void ContainerSelection::adjustContainerCycle(std::string ContainerID, int cycle){
     time_t nowTime = time(NULL);
     auto it = ContainerList.begin();
     while(it->ContainerID != ContainerID){
@@ -52,16 +49,16 @@ void ContainerSelection::runContainerSelection(){
                 int sleepTime = it->nextTime - nowTime;
                 sleep(sleepTime);
             }else{
-                string ContainerID = it->ContainerID;
+                std::string ContainerID = it->ContainerID;
                 // 将ContainerID传入数据搜集模块
-                unique_ptr<ContainerDataCollection> temp(new ContainerDataCollection(ContainerID));
+                std::unique_ptr<ContainerDataCollection> temp(new ContainerDataCollection(ContainerID));
                 // ContainerDataCollection temp(ContainerID);
                 temp->processData();
                 it->nextTime = nowTime + it->collectCycle;
                 sort(ContainerList.begin(), ContainerList.end());
             }
         }else{
-            cout << "there are currently no running containers!" << endl;
+            std::cout << "there are currently no running containers!" << std::endl;
         }
     }
 }

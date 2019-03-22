@@ -1,12 +1,7 @@
-#include<iostream>
-#include<sstream>
-#include<json/json.h>
-#include<Python.h>
 #include"ContainerDataCollection.h"
-#include"json/json.h"
-using namespace std;
 
-ContainerDataCollection::ContainerDataCollection(string ContainerID){
+
+ContainerDataCollection::ContainerDataCollection(std::string ContainerID){
     this->ContainerID = ContainerID;
 }
 
@@ -18,15 +13,15 @@ ContainerDataCollection::~ContainerDataCollection(){
 }
 
 
-void ContainerDataCollection::openFile(string fileName){
+void ContainerDataCollection::openFile(std::string fileName){
     if(!fs.is_open()){
         fs.open(fileName);
         if(!fs.is_open()){
-            cerr << "Errore opening file! The file is " + fileName << endl;
+            std::cerr << "Errore opening file! The file is " + fileName << std::endl;
             exit(1);
         }
     }else{
-        cout << "There is already having an open file!" << endl;
+        std::cout << "There is already having an open file!" << std::endl;
     }
 }
 
@@ -38,18 +33,18 @@ void ContainerDataCollection::closeFile(){
 }
 
 
-vector<string> ContainerDataCollection::split(const char *buffer){
-    stringstream ss;
+std::vector<string> ContainerDataCollection::split(const char *buffer){
+    std::stringstream ss;
     ss.str(buffer);
-    string item;
-    vector<string> elems;
+    std::string item;
+    std::vector<string> elems;
     while(ss >> item){
         elems.push_back(item);
     }
     return elems;
 }
 
-unsigned long long ContainerDataCollection::readSimpleData(string fileName){
+unsigned long long ContainerDataCollection::readSimpleData(std::string fileName){
     openFile(fileName);
     unsigned long long data;
     char buffer[256];
@@ -61,19 +56,19 @@ unsigned long long ContainerDataCollection::readSimpleData(string fileName){
 
 
 unsigned long long ContainerDataCollection::readConTimeSlice(){
-    string fileName = "/sys/fs/cgroup/cpuacct/docker/" + ContainerID + "/cpuacct.usage";
+    std::string fileName = "/sys/fs/cgroup/cpuacct/docker/" + ContainerID + "/cpuacct.usage";
     return readSimpleData(fileName);
 }
 
 
 unsigned long long ContainerDataCollection::readTotalTimeSlice(){
-    string fileName = "/proc/stat";
+    std::string fileName = "/proc/stat";
     openFile(fileName);
     unsigned long long totalTimeSlice;
     totalTimeSlice = 0;
     char buffer[256];
     fs.getline(buffer, 200);
-    vector<string> elems = split(buffer);
+    std::vector<std::string> elems = split(buffer);
     for(int i = 1; i < 10; i++){
         totalTimeSlice += atoll(elems[i].c_str());
     }
@@ -83,43 +78,43 @@ unsigned long long ContainerDataCollection::readTotalTimeSlice(){
 
 
 unsigned long long ContainerDataCollection::readMemUsed(){
-    string fileName = "/sys/fs/cgroup/memory/docker/" + ContainerID + "/memory.usage_in_bytes";
+    std::string fileName = "/sys/fs/cgroup/memory/docker/" + ContainerID + "/memory.usage_in_bytes";
     return readSimpleData(fileName);
 }
 
 
 unsigned long long ContainerDataCollection::readMemLimit(){
-    string fileName = "/sys/fs/cgroup/memory/docker/" + ContainerID + "/memory.limit_in_bytes";
+    std::string fileName = "/sys/fs/cgroup/memory/docker/" + ContainerID + "/memory.limit_in_bytes";
     return readSimpleData(fileName);
 }
 
 
 unsigned long long *ContainerDataCollection::readDiskData(){
-    string fileName = "/sys/fs/cgroup/blkio/docker/" + ContainerID + "/blkio.throttle.io_service_bytes";
+    std::string fileName = "/sys/fs/cgroup/blkio/docker/" + ContainerID + "/blkio.throttle.io_service_bytes";
     openFile(fileName);
     unsigned long long *diskData = new unsigned long long[2];
     char buffer[256];
     // 读取文件第一行，磁盘读速率数据
     fs.getline(buffer, 200);
-    vector<string> elems1 = split(buffer);
+    std::vector<std::string> elems1 = split(buffer);
     diskData[0] = atoll(elems1[2].c_str());
     // 读取文件第二行，磁盘写速率数据
     fs.getline(buffer, 200);
-    vector<string> elems2 = split(buffer);
+    std::vector<std::string> elems2 = split(buffer);
     diskData[1] = atoll(elems2[2].c_str());
     closeFile();
     return diskData;
 }
 
 
-string ContainerDataCollection::getConPID(){
-    string pid;
+std::string ContainerDataCollection::getConPID(){
+    std::string pid;
     PyObject *pModule,*pFunc;
     PyObject *pArgs, *pValue;
     // 对python初始化 
     Py_Initialize(); 
     if(!Py_IsInitialized()){
-        cout << "init faild/n" << endl;
+        std::cerr << "init faild/n" << std::endl;
         exit(1);
     }else{
         // 设置python文件路径 
@@ -127,27 +122,23 @@ string ContainerDataCollection::getConPID(){
         PyRun_SimpleString("sys.path.append('../src/python')");
         // 加载模块 
         pModule = PyImport_ImportModule("containerPID");
-        if(!pModule){
-            cout << "module failed!" << endl;
-        }else
-        {
-            // 加载函数 
-            pFunc = PyObject_GetAttrString(pModule, "getContainerPID");
-            if(!pFunc || !PyCallable_Check(pFunc)){
-                cout << "can not find function!" << endl;
-            }else{
-                // 设置参数 
-                pArgs = PyTuple_New(1);
-                const char *id = this->ContainerID.c_str();
-                PyTuple_SetItem(pArgs, 0, Py_BuildValue("s", id));
-                // 调用函数 
-                pValue = PyEval_CallObject(pFunc, pArgs);
-                int temp;
-                PyArg_Parse(pValue, "i", &temp);
-                stringstream ss;
-                ss << temp;
-                pid = temp.str();
-            }
+        // 加载函数 
+        pFunc = PyObject_GetAttrString(pModule, "getContainerPID");
+        if(!pFunc || !PyCallable_Check(pFunc)){
+            std::cerr << "can not find function!" << std::endl;
+            exit(1);
+        }else{
+            // 设置参数 
+            pArgs = PyTuple_New(1);
+            const char *id = this->ContainerID.c_str();
+            PyTuple_SetItem(pArgs, 0, Py_BuildValue("s", id));
+            // 调用函数 
+            pValue = PyEval_CallObject(pFunc, pArgs);
+            int temp;
+            PyArg_Parse(pValue, "i", &temp);
+            std::stringstream ss;
+            ss << temp;
+            pid = temp.str();
         }
         Py_Finalize(); 
     }
@@ -157,14 +148,14 @@ string ContainerDataCollection::getConPID(){
 
 
 unsigned long long *ContainerDataCollection::readNetData(){
-    string pid = getConPID();
-    string fileName = "/proc/" + pid + "/net/dev";
+    std::string pid = getConPID();
+    std::string fileName = "/proc/" + pid + "/net/dev";
     openFile(fileName);
     unsigned long long *netData = new unsigned long long[2];
     char buffer[256];
-    vector<string> elems;
+    std::vector<std::string> elems;
     while(fs.getline(buffer, 200)){
-        vector<string> temp = split(buffer);
+        std::vector<std::string> temp = split(buffer);
         // todo: 需要确定容器对应网卡，暂时选择物理网卡1
         if(temp[0] == "eth0:"){
             elems = temp;
@@ -264,10 +255,10 @@ void ContainerDataCollection::eraseContainerStatus(){
 
 
 void ContainerDataCollection::processData(){
-    string processedData;
+    std::string processedData;
     Json::Value root;
     Json::StreamWriterBuilder writerBuilder;
-    ostringstream os;
+    std::ostringstream os;
     root["ContainerID"] = this->ContainerID;
     root["Timestamp"] = time(NULL);
     root["CpuLoadAvg"] = getCpuLoadAvg();
@@ -280,9 +271,10 @@ void ContainerDataCollection::processData(){
     root["NetReceiveAvg"] = netRate[0];
     root["NetTransmitAvg"] = netRate[1];
     delete[] netRate;
-    unique_ptr<Json::StreamWriter> jsonWriter(writerBuilder.newStreamWriter());
+    std::unique_ptr<Json::StreamWriter> jsonWriter(writerBuilder.newStreamWriter());
     jsonWriter->write(root, &os);
     processedData = os.str();
-    // todo:调用传输模块接口，将json数据传输给监控服务器
-    
+    // 调用传输模块接口，将json数据传输给监控服务器
+    Transmission trans;
+    trans.send(processData);
 }

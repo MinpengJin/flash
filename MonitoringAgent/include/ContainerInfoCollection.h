@@ -1,9 +1,13 @@
+#include<Python.h>
+#include<sstream>
+#include<memory>
+#include"json/json.h"
 #include"ContainerSelection.h"
 
 int FOUND_CYCLE = 10;
 
 struct InfoType{
-    string id, status;
+    std::string id, status;
 };
 
 class ContainerInfoCollection{

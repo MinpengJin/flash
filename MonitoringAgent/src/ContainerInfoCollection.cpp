@@ -1,10 +1,4 @@
-#include<Python.h>
-#include<sstream>
-#include<memory>
-#include"json/json.h"
 #include"ContainerInfoCollection.h"
-
-using namespace std;
 
 ContainerInfoCollection::ContainerInfoCollection(){}
 
@@ -17,51 +11,50 @@ void ContainerInfoCollection::runContainerInfoCollection(){
 
     Py_Initialize();
     if(!Py_IsInitialized()){
-        cout << "initialize failed!" << endl;
+        std::cerr << "initialize failed!" << std::endl;
+        exit(1);
     }else{
         PyRun_SimpleString("import sys");
         PyRun_SimpleString("sys.path.append('../src/python')");
 
         pModule = PyImport_ImportModule("containerInfo");
-        if(!pModule){
-            cout << "can't import module!" << endl;
+        pFunc = PyObject_GetAttrString(pModule, "getContainerInfo");
+        if(!pFunc || !PyCallable_Check(pFunc)){
+            std::cerr << "can't find function!" << std::endl;
+            exit(1);
         }else{
-            pFunc = PyObject_GetAttrString(pModule, "getContainerInfo");
-            if(!pFunc || !PyCallable_Check(pFunc)){
-                cout << "can't find function!" << endl;
-            }else{
-                while(true){
-                    time_t sinceTime = time(NULL);
-                    time_t untilTime = sinceTime + FOUND_CYCLE;
-                    pArgs = PyTuple_New(3);
-                    PyTuple_SetItem(pArgs, 0, Py_BuildValue("i", sinceTime));
-                    PyTuple_SetItem(pArgs, 1, Py_BuildValue("i", untilTime));
-                    PyTuple_SetItem(pArgs, 2, Py_BuildValue("i", FOUND_CYCLE));
-                    // 调用函数
-                    pValue = PyEval_CallObject(pFunc, pArgs);
-                    const char *listStr;
-                    PyArg_Parse(pValue, "s", &listStr);
-                    stringstream ss;
-                    ss.str(listStr);
-                    string item;
-                    while(getline(ss, item, ';')){
-                        string containerID, status;
-                        Json::Value jsonRoot;
-                        Json::CharReaderBuilder readerBuilder;
-                        unique_ptr<Json::CharReader> const reader(readerBuilder.newCharReader());
-                        JSONCPP_STRING errs;
-                        bool res = reader->parse(item.c_str(), item.c_str() + item.length(), &jsonRoot, &errs);
-                        if (!res || !errs.empty()) 
-                        {
-                            cout << "parse Json error! " << errs << endl;
-                        }else{
-                            containerID = jsonRoot["id"].asString();
-                            status = jsonRoot["status"].asString();
-                            // cout << "id:" << item["id"].asString() << " status:" << item["status"].asString() << endl;
-                        }
-                        unique_ptr<ContainerSelection> temp(new ContainerSelection());
-                        temp->adjustContainerList(containerID, status);
+            while(true){
+                time_t sinceTime = time(NULL);
+                time_t untilTime = sinceTime + FOUND_CYCLE;
+                pArgs = PyTuple_New(3);
+                PyTuple_SetItem(pArgs, 0, Py_BuildValue("i", sinceTime));
+                PyTuple_SetItem(pArgs, 1, Py_BuildValue("i", untilTime));
+                PyTuple_SetItem(pArgs, 2, Py_BuildValue("i", FOUND_CYCLE));
+                // 调用函数
+                pValue = PyEval_CallObject(pFunc, pArgs);
+                const char *listStr;
+                PyArg_Parse(pValue, "s", &listStr);
+                std::stringstream ss;
+                ss.str(listStr);
+                std::string item;
+                while(getline(ss, item, ';')){
+                    std::string containerID, status;
+                    Json::Value jsonRoot;
+                    Json::CharReaderBuilder readerBuilder;
+                    unique_ptr<Json::CharReader> const reader(readerBuilder.newCharReader());
+                    JSONCPP_STRING errs;
+                    bool res = reader->parse(item.c_str(), item.c_str() + item.length(), &jsonRoot, &errs);
+                    if (!res || !errs.empty()) 
+                    {
+                        std::cerr << "parse Json error! " << errs << std::endl;
+                        Exit(-1);
+                    }else{
+                        containerID = jsonRoot["id"].asString();
+                        status = jsonRoot["status"].asString();
+                        // cout << "id:" << item["id"].asString() << " status:" << item["status"].asString() << endl;
                     }
+                    std::unique_ptr<ContainerSelection> temp(new ContainerSelection());
+                    temp->adjustContainerList(containerID, status);
                 }
             }
         }
