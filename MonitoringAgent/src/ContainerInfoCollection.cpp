@@ -1,8 +1,14 @@
 #include"ContainerInfoCollection.h"
 
-ContainerInfoCollection::ContainerInfoCollection(){}
+ContainerInfoCollection::ContainerInfoCollection(){
+    runThread = std::move(std::make_unique<std::thread>(ContainerInfoCollection::runContainerInfoCollection, this));
+    std::unique_ptr<ContainerSelection> temp(new ContainerSelection());
+    selection_ptr.reset(temp.release());
+}
 
-ContainerInfoCollection::~ContainerInfoCollection(){}
+ContainerInfoCollection::~ContainerInfoCollection(){
+    runThread->join();
+}
 
 // 在主函数main中单独创建一个线程运行runContainerInfoCollection函数
 void ContainerInfoCollection::runContainerInfoCollection(){
@@ -53,8 +59,7 @@ void ContainerInfoCollection::runContainerInfoCollection(){
                         status = jsonRoot["status"].asString();
                         // cout << "id:" << item["id"].asString() << " status:" << item["status"].asString() << endl;
                     }
-                    std::unique_ptr<ContainerSelection> temp(new ContainerSelection());
-                    temp->adjustContainerList(containerID, status);
+                    selection_ptr->adjustContainerList(containerID, status);
                 }
             }
         }

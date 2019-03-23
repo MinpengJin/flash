@@ -1,15 +1,19 @@
+#ifndef TRANSMISSION_H
+#define TRANSMISSION_H
+
 #include <websocketpp/config/asio_no_tls_client.hpp>
 #include <websocketpp/client.hpp>
 
 #include <websocketpp/common/thread.hpp>
 #include <websocketpp/common/memory.hpp>
 
-#include"json/json.h"
 #include <cstdlib>
 #include <iostream>
 #include <map>
+#include <vector>
 #include <string>
 #include <sstream>
+#include "json/json.h"
 
 typedef websocketpp::client<websocketpp::config::asio_client> client;
 
@@ -118,8 +122,6 @@ public:
 };
 
 
-#ifndef TRANSMISSION_H
-#define TRANSMISSION_H
 class Transmission {
 private:
     client t_client;

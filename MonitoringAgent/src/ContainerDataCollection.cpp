@@ -1,8 +1,9 @@
 #include"ContainerDataCollection.h"
 
 
-ContainerDataCollection::ContainerDataCollection(std::string ContainerID){
-    this->ContainerID = ContainerID;
+ContainerDataCollection::ContainerDataCollection(){
+    std::unique_ptr<Transmission> temp(new Transmission());
+    transmission_ptr.reset(temp.release());
 }
 
 
@@ -55,7 +56,7 @@ unsigned long long ContainerDataCollection::readSimpleData(std::string fileName)
 }
 
 
-unsigned long long ContainerDataCollection::readConTimeSlice(){
+unsigned long long ContainerDataCollection::readConTimeSlice(std::string ContainerID){
     std::string fileName = "/sys/fs/cgroup/cpuacct/docker/" + ContainerID + "/cpuacct.usage";
     return readSimpleData(fileName);
 }
@@ -77,19 +78,19 @@ unsigned long long ContainerDataCollection::readTotalTimeSlice(){
 }
 
 
-unsigned long long ContainerDataCollection::readMemUsed(){
+unsigned long long ContainerDataCollection::readMemUsed(std::string ContainerID){
     std::string fileName = "/sys/fs/cgroup/memory/docker/" + ContainerID + "/memory.usage_in_bytes";
     return readSimpleData(fileName);
 }
 
 
-unsigned long long ContainerDataCollection::readMemLimit(){
+unsigned long long ContainerDataCollection::readMemLimit(std::string ContainerID){
     std::string fileName = "/sys/fs/cgroup/memory/docker/" + ContainerID + "/memory.limit_in_bytes";
     return readSimpleData(fileName);
 }
 
 
-unsigned long long *ContainerDataCollection::readDiskData(){
+unsigned long long *ContainerDataCollection::readDiskData(std::string ContainerID){
     std::string fileName = "/sys/fs/cgroup/blkio/docker/" + ContainerID + "/blkio.throttle.io_service_bytes";
     openFile(fileName);
     unsigned long long *diskData = new unsigned long long[2];
@@ -107,7 +108,7 @@ unsigned long long *ContainerDataCollection::readDiskData(){
 }
 
 
-std::string ContainerDataCollection::getConPID(){
+std::string ContainerDataCollection::getConPID(std::string ContainerID){
     std::string pid;
     PyObject *pModule,*pFunc;
     PyObject *pArgs, *pValue;
@@ -130,7 +131,7 @@ std::string ContainerDataCollection::getConPID(){
         }else{
             // 设置参数 
             pArgs = PyTuple_New(1);
-            const char *id = this->ContainerID.c_str();
+            const char *id = ContainerID.c_str();
             PyTuple_SetItem(pArgs, 0, Py_BuildValue("s", id));
             // 调用函数 
             pValue = PyEval_CallObject(pFunc, pArgs);
@@ -147,8 +148,8 @@ std::string ContainerDataCollection::getConPID(){
 }
 
 
-unsigned long long *ContainerDataCollection::readNetData(){
-    std::string pid = getConPID();
+unsigned long long *ContainerDataCollection::readNetData(std::string ContainerID){
+    std::string pid = getConPID(ContainerID);
     std::string fileName = "/proc/" + pid + "/net/dev";
     openFile(fileName);
     unsigned long long *netData = new unsigned long long[2];
@@ -168,12 +169,12 @@ unsigned long long *ContainerDataCollection::readNetData(){
 }
 
 
-float ContainerDataCollection::getCpuLoadAvg(){
+float ContainerDataCollection::getCpuLoadAvg(std::string ContainerID){
     float cpuUsage;
     unsigned long long preConTimeSlice = ContainerDataList[ContainerID].containerTimeSlice;
     unsigned long long preTotalTimeSlice = ContainerDataList[ContainerID].totalTimeSlice;
-    unsigned long long nowConTimeSlice = readConTimeSlice();
-    unsigned long long nowTotalTimeSlice = readTotalTimeSlice();
+    unsigned long long nowConTimeSlice = readConTimeSlice(ContainerID);
+    unsigned long long nowTotalTimeSlice = readTotalTimeSlice(ContainerID);
     cpuUsage = ((nowConTimeSlice - preConTimeSlice)/(nowTotalTimeSlice - preTotalTimeSlice))*CORE_NUM*100;
     ContainerDataList[ContainerID].containerTimeSlice = nowConTimeSlice;
     ContainerDataList[ContainerID].totalTimeSlice = nowTotalTimeSlice;
@@ -181,18 +182,18 @@ float ContainerDataCollection::getCpuLoadAvg(){
 }
 
 
-float ContainerDataCollection::getMemLoadAvg(){
+float ContainerDataCollection::getMemLoadAvg(std::string ContainerID){
     float memUsage;
-    unsigned long long memUsed = readMemUsed();
-    unsigned long long memLimit = readMemLimit();
+    unsigned long long memUsed = readMemUsed(ContainerID);
+    unsigned long long memLimit = readMemLimit(ContainerID);
     memUsage = (memUsage / memLimit) * 100;
     return memUsage;
 }
 
 
-float *ContainerDataCollection::getDiskRateAvg(){
+float *ContainerDataCollection::getDiskRateAvg(std::string ContainerID){
     float *diskRate = new float[2];
-    unsigned long long *diskData = readDiskData();
+    unsigned long long *diskData = readDiskData(ContainerID);
     time_t nowTime = time(NULL);
     time_t preTime = ContainerDataList[ContainerID].preTime;
     // 计算磁盘读速率
@@ -210,9 +211,9 @@ float *ContainerDataCollection::getDiskRateAvg(){
 }
 
 
-float *ContainerDataCollection::getNetRateAvg(){
+float *ContainerDataCollection::getNetRateAvg(std::string ContainerID){
     float *netRate = new float[2];
-    unsigned long long *netData = readNetData();
+    unsigned long long *netData = readNetData(ContainerID);
     time_t nowTime = time(NULL);
     time_t preTime = ContainerDataList[ContainerID].preTime;
     // 计算网络接受速率
@@ -231,39 +232,42 @@ float *ContainerDataCollection::getNetRateAvg(){
 }
 
 
-void ContainerDataCollection::updateContainerStatus(){
+void ContainerDataCollection::updateContainerStatus(std::string ContainerID){
     preContainerData tempStatus;
     tempStatus.preTime = time(NULL);
-    tempStatus.containerTimeSlice = readConTimeSlice();
-    tempStatus.totalTimeSlice = readTotalTimeSlice();
-    unsigned long long *diskData = readDiskData();
+    tempStatus.containerTimeSlice = readConTimeSlice(ContainerID);
+    tempStatus.totalTimeSlice = readTotalTimeSlice(ContainerID);
+    unsigned long long *diskData = readDiskData(ContainerID);
     tempStatus.diskRead = diskData[0];
     tempStatus.diskWrite = diskData[1];
     delete[] diskData;
-    unsigned long long *netData = readNetData();
+    unsigned long long *netData = readNetData(ContainerID);
     tempStatus.netReceive = netData[0];
     tempStatus.netTransmit = netData[1];
     delete[] netData;
+
+    std::lock_guard<std::mutex> lock(ContainerDataList_lock);
     ContainerDataList[ContainerID] = tempStatus;
 }
 
 
-void ContainerDataCollection::eraseContainerStatus(){
+void ContainerDataCollection::eraseContainerStatus(std::string ContainerID){
+    std::lock_guard<std::mutex> lock(ContainerDataList_lock);
     auto it = ContainerDataList.find(ContainerID);
     ContainerDataList.erase(it);
 }
 
 
-void ContainerDataCollection::processData(){
-    std::string processedData;
+void ContainerDataCollection::processData(std::string ContainerID){
+    ContainerDataList_lock.lock();
     Json::Value root;
     Json::StreamWriterBuilder writerBuilder;
     std::ostringstream os;
-    root["ContainerID"] = this->ContainerID;
+    root["ContainerID"] = ContainerID;
     root["Timestamp"] = time(NULL);
-    root["CpuLoadAvg"] = getCpuLoadAvg();
-    root["MemLoadAvg"] = getMemLoadAvg();
-    float *diskRate = getDiskRateAvg();
+    root["CpuLoadAvg"] = getCpuLoadAvg(ContainerID);
+    root["MemLoadAvg"] = getMemLoadAvg(ContainerID);
+    float *diskRate = getDiskRateAvg(ContainerID);
     root["DiskReadAvg"] = diskRate[0];
     root["DiskWriteAvg"] = diskRate[1];
     delete[] diskRate;
@@ -271,10 +275,11 @@ void ContainerDataCollection::processData(){
     root["NetReceiveAvg"] = netRate[0];
     root["NetTransmitAvg"] = netRate[1];
     delete[] netRate;
+    ContainerDataList_lock.unlock();
+
     std::unique_ptr<Json::StreamWriter> jsonWriter(writerBuilder.newStreamWriter());
     jsonWriter->write(root, &os);
-    processedData = os.str();
+    std::string processedData = os.str();
     // 调用传输模块接口，将json数据传输给监控服务器
-    Transmission trans;
-    trans.send(processData);
+    trans->send(processedData);
 }
