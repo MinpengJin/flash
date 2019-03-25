@@ -25,11 +25,12 @@ struct ContainerItem
 };
 
 
-std::mutex ContainerList_lock;
 
 class ContainerSelection{
 private:
     std::vector<ContainerItem> ContainerList;                                   // 待监控容器队列
+    std::mutex ContainerList_lock;  
+    
     std::unique_ptr<ContainerDataCollection> ContainerDataCollection_ptr;                                
     std::unique_ptr<std::thread> runThread;
 

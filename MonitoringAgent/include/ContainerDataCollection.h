@@ -35,12 +35,13 @@ struct ProcessedData{
     float NetTransmitAvg;
 };
 
-std::mutex ContainerDataList_lock;                                      
 
 class ContainerDataCollection{
 private:
     std::map<std::string, preContainerData> ContainerDataList;          // 前一个时间的容器监控数据列表
-    std::shared_ptr<Transmission> transmission_ptr;
+    std::mutex ContainerDataList_lock;           
+                               
+    std::shared_ptr<ClientTransmission> transmission_ptr;
     std::fstream fs;
 
     void openFile(std::string fileName);                                // 打开指定文件

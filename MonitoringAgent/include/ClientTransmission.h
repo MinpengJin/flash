@@ -1,5 +1,5 @@
-#ifndef TRANSMISSION_H
-#define TRANSMISSION_H
+#ifndef CLIENTTRANSMISSION_H
+#define CLIENTTRANSMISSION_H
 
 #include <websocketpp/config/asio_no_tls_client.hpp>
 #include <websocketpp/client.hpp>
@@ -77,7 +77,7 @@ public:
             if (!res || !errs.empty()) 
             {
                 std::cerr << "parse Json error! " << errs << std::endl;
-                Exit(-1);
+                exit(1);
             }else{
                 cmd = jsonRoot["cmd"].asString();
                 data = jsonRoot["data"].asString();
@@ -122,16 +122,16 @@ public:
 };
 
 
-class Transmission {
+class ClientTransmission {
 private:
     client t_client;
-    websocketpp::lib::shared_ptr<websocketpp::lib::thread> t_thread;
     connection_metadata::ptr metadata_ptr;
+    websocketpp::lib::shared_ptr<websocketpp::lib::thread> t_thread;
 
 public:
-    Transmission ();
-    ~Transmission();
-    // 建立连接
+    ClientTransmission ();
+    ~ClientTransmission();
+    // 建立连接，返回1创建失败；返回0创建成功
     int connect(std::string const & uri);
     // 关闭连接
     inline void close();

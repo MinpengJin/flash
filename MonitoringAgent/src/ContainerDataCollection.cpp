@@ -260,26 +260,31 @@ void ContainerDataCollection::eraseContainerStatus(std::string ContainerID){
 
 void ContainerDataCollection::processData(std::string ContainerID){
     ContainerDataList_lock.lock();
-    Json::Value root;
+    Json::Value root, item;
     Json::StreamWriterBuilder writerBuilder;
     std::ostringstream os;
-    root["ContainerID"] = ContainerID;
-    root["Timestamp"] = time(NULL);
-    root["CpuLoadAvg"] = getCpuLoadAvg(ContainerID);
-    root["MemLoadAvg"] = getMemLoadAvg(ContainerID);
+    root["cmd"] = "ContainerData";
+
+    item["ContainerID"] = ContainerID;
+    item["Timestamp"] = time(NULL);
+    item["CpuLoadAvg"] = getCpuLoadAvg(ContainerID);
+    item["MemLoadAvg"] = getMemLoadAvg(ContainerID);
     float *diskRate = getDiskRateAvg(ContainerID);
-    root["DiskReadAvg"] = diskRate[0];
-    root["DiskWriteAvg"] = diskRate[1];
+    item["DiskReadAvg"] = diskRate[0];
+    item["DiskWriteAvg"] = diskRate[1];
     delete[] diskRate;
     float *netRate = getNetRateAvg();
-    root["NetReceiveAvg"] = netRate[0];
-    root["NetTransmitAvg"] = netRate[1];
+    item["NetReceiveAvg"] = netRate[0];
+    item["NetTransmitAvg"] = netRate[1];
     delete[] netRate;
     ContainerDataList_lock.unlock();
+    root["data"] = item;
 
     std::unique_ptr<Json::StreamWriter> jsonWriter(writerBuilder.newStreamWriter());
     jsonWriter->write(root, &os);
-    std::string processedData = os.str();
+    std::string processedData = "ContainerData" + os.str();
     // 调用传输模块接口，将json数据传输给监控服务器
-    trans->send(processedData);
+    if(!transmission_ptr->connect("ws://localhost:9002")){
+        transmission_ptr->send(processedData);
+    }
 }

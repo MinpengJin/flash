@@ -1,6 +1,6 @@
-#include "Transmission.h"
+#include "ClientTransmission.h"
 
-Transmission::Transmission () {
+ClientTransmission::ClientTransmission () {
     t_client.clear_access_channels(websocketpp::log::alevel::all);
     t_client.clear_error_channels(websocketpp::log::elevel::all);
     // 初始化传输模块并将其设置为永久模式
@@ -10,7 +10,7 @@ Transmission::Transmission () {
     t_thread = websocketpp::lib::make_shared<websocketpp::lib::thread>(&client::run, &t_client);
 }
 
-Transmission::~Transmission() {
+ClientTransmission::~ClientTransmission() {
     t_client.stop_perpetual();
     // 如果连接没有关闭，则关闭连接
     if (metadata_ptr->get_status() == "Open") {
@@ -18,7 +18,7 @@ Transmission::~Transmission() {
         websocketpp::lib::error_code ec;
         t_client.close(metadata_ptr->get_hdl(), websocketpp::close::status::going_away, "", ec);
         if (ec) {
-            std::cout << "> Error closing connection " << ": "  
+            std::cout << "[Client] Error closing connection " << ": "  
                         << ec.message() << std::endl;
         }
     }
@@ -26,12 +26,12 @@ Transmission::~Transmission() {
     t_thread->join();
 }
 
-int Transmission::connect(std::string const & uri) {
+int ClientTransmission::connect(std::string const & uri) {
     // 创建一个新的连接
     websocketpp::lib::error_code ec;
     client::connection_ptr con = t_client.get_connection(uri, ec);
     if (ec) {
-        std::cout << "Connect initialization error: " << ec.message() << std::endl;
+        std::cout << "[Client] Connect initialization error: " << ec.message() << std::endl;
         return 1;
     }
     metadata_ptr = websocketpp::lib::make_shared<connection_metadata>(con->get_handle(), uri);
@@ -65,20 +65,21 @@ int Transmission::connect(std::string const & uri) {
     return 0;
 }
 
-void Transmission::close() {
+void ClientTransmission::close() {
     websocketpp::lib::error_code ec;
     //  关闭连接
     t_client.close(metadata_ptr->get_hdl(), websocketpp::close::status::going_away, "", ec);
     if (ec) {
-        std::cout << " Error initiating close: " << ec.message() << std::endl;
+        std::cout << "[Client] Error initiating close: " << ec.message() << std::endl;
+        return;
     }
 }
 
-void Transmission::send(std::string message) {
+void ClientTransmission::send(std::string message) {
     websocketpp::lib::error_code ec;
     t_client.send(metadata_ptr->get_hdl(), message, websocketpp::frame::opcode::text, ec);
     if (ec) {
-        std::cout << " Error sending message: " << ec.message() << std::endl;
+        std::cout << "[Client] Error sending message: " << ec.message() << std::endl;
         return;
     }
 }
@@ -86,7 +87,7 @@ void Transmission::send(std::string message) {
 /* 
  *----test----
 int main(){
-    Transmission trans;
+    ClientTransmission trans;
     std::string uri;
     std::cout << "> please input the uri:";
     std::cin >> uri;

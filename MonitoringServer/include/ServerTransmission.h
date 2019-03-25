@@ -1,5 +1,5 @@
-#ifndef TRANSMISSION_H
-#define TRANSMISSION_H
+#ifndef SERVERTRANSMISSION_H
+#define SERVERTRANSMISSION_H
 
 #include <websocketpp/config/asio_no_tls.hpp>
 
@@ -9,6 +9,7 @@
 #include <vector>
 #include <map>
 #include <sstream>
+#include "json/json.h"
 
 #include <websocketpp/common/thread.hpp>
 
@@ -33,26 +34,24 @@ struct Connection
 };
 
 
-class Transmission {
+class ServerTransmission {
 private:
     
-    int id = 0;                                 // 分配给监控服务器的id
+    int id = 0;                                         // 分配给监控代理的id
 
     server m_server;
-    std::map<connection_hdl, std::string> link;
-    std::vector<Connection> s_connections;
+    std::vector<Connection> s_connections;              // 存储所有与监控服务器建立的连接
+    std::map<connection_hdl, std::string> link;         // handler和监控代理id的关系
     
     websocketpp::lib::shared_ptr<websocketpp::lib::thread> s_thread;
-
-public:
-    Transmission(uint16_t port);
-    ~Transmission();
-
-    void run(uint16_t port);
 
     void on_open(connection_hdl hdl);
     void on_close(connection_hdl hdl);
     void on_message(connection_hdl hdl, server::message_ptr msg);
+
+public:
+    ServerTransmission(uint16_t port);
+    ~ServerTransmission();
 
     void sendMessage(std::string agentID);
 };
