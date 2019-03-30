@@ -1,14 +1,7 @@
 #include "ClientTransmission.h"
 
-ClientTransmission::ClientTransmission () {
-    t_client.clear_access_channels(websocketpp::log::alevel::all);
-    t_client.clear_error_channels(websocketpp::log::elevel::all);
-    // 初始化传输模块并将其设置为永久模式
-    t_client.init_asio();
-    t_client.start_perpetual();
-    // 给传输模块创建一个新的线程
-    t_thread = websocketpp::lib::make_shared<websocketpp::lib::thread>(&client::run, &t_client);
-}
+ClientTransmission::ClientTransmission () {}
+
 
 ClientTransmission::~ClientTransmission() {
     t_client.stop_perpetual();
@@ -25,6 +18,18 @@ ClientTransmission::~ClientTransmission() {
     // 阻塞线程
     t_thread->join();
 }
+
+
+void ClientTransmissin::initTransmission() {
+    t_client.clear_access_channels(websocketpp::log::alevel::all);
+    t_client.clear_error_channels(websocketpp::log::elevel::all);
+    // 初始化传输模块并将其设置为永久模式
+    t_client.init_asio();
+    t_client.start_perpetual();
+    // 给传输模块创建监听线程
+    t_thread = websocketpp::lib::make_shared<websocketpp::lib::thread>(&client::run, &t_client);
+}
+
 
 int ClientTransmission::connect(std::string const & uri) {
     // 创建一个新的连接
@@ -65,6 +70,7 @@ int ClientTransmission::connect(std::string const & uri) {
     return 0;
 }
 
+
 void ClientTransmission::close() {
     websocketpp::lib::error_code ec;
     //  关闭连接
@@ -75,6 +81,7 @@ void ClientTransmission::close() {
     }
 }
 
+
 void ClientTransmission::send(std::string message) {
     websocketpp::lib::error_code ec;
     t_client.send(metadata_ptr->get_hdl(), message, websocketpp::frame::opcode::text, ec);
@@ -82,6 +89,11 @@ void ClientTransmission::send(std::string message) {
         std::cout << "[Client] Error sending message: " << ec.message() << std::endl;
         return;
     }
+}
+
+
+std::string ClientTransmission::getAgentID(){
+    return agentID;
 }
 
 /* 

@@ -12,11 +12,17 @@
 #include <stdlib.h>
 #include <mutex>
 #include "json/json.h"
+#include "ClientTransmission.h"
+
+/*
+ * 名称：监控数据收集模块
+ * 功能：根据监控容器选择模块发送的容器id收集其容器信息
+ *      并将收集的容器数据信息转换成json格式发送给传输模块
+ */
 
 
-const int CORE_NUM = 1;                                                 // 宿主机CPU核数
-
-struct preContainerData                                                 // 前一个时间的容器监控数据
+// 前一个监控周期的容器监控数据
+struct preContainerData                                                
 {
     time_t preTime;                                                     // 上一次容器状态更新时间戳
     unsigned long long containerTimeSlice, totalTimeSlice;              // 容器使用时间片和机器总的时间片
@@ -24,6 +30,7 @@ struct preContainerData                                                 // 前�
     unsigned long long netReceive, netTransmit;                         // 网络接收和发送字节数
 };
 
+// 监控数据格式
 struct ProcessedData{
     std::string ContainerID;
     time_t Timestamp;
@@ -35,14 +42,14 @@ struct ProcessedData{
     float NetTransmitAvg;
 };
 
+// 全局变量 ：记录容器上一个监控周期的监控数据
+extern std::map<std::string, preContainerData> ContainerDataList;       
+extern std::mutex ContainerDataList_lock;      
 
 class ContainerDataCollection{
 private:
-    std::map<std::string, preContainerData> ContainerDataList;          // 前一个时间的容器监控数据列表
-    std::mutex ContainerDataList_lock;           
-                               
-    std::shared_ptr<ClientTransmission> transmission_ptr;
-    std::fstream fs;
+    int core_num = 1;                                                    // 宿主机CPU核数
+    std::fstream fs;     
 
     void openFile(std::string fileName);                                // 打开指定文件
     void closeFile();                                                   // 关闭当前打开的文件
@@ -67,10 +74,13 @@ public:
     ContainerDataCollection();                                          // 构造函数
     ~ContainerDataCollection();                                         // 析构函数，关闭当前打开的文件
 
-    // interface for the ContainerSelection module
+    void setCoreNum(int num);
+    int getCoreNum();
+
+    // 监控容器选择模块接口
     void updateContainerStatus(std::string ContainerID);                // 添加或者更新指定的容器状态到容器状态列表中
     void eraseContainerStatus(std::string ContainerID);                 // 在容器状态列表中删除指定容器状态
-
+    // 处理监控数据，将其转换成Json格式
     void processData(std::string ContainerID);                          // 将指定容器的监控数据转换成json格式
 };
 

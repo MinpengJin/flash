@@ -1,17 +1,11 @@
 #include"ContainerInfoCollection.h"
 
-ContainerInfoCollection::ContainerInfoCollection(){
-    runThread = std::move(std::make_unique<std::thread>(ContainerInfoCollection::runContainerInfoCollection, this));
-    std::unique_ptr<ContainerSelection> temp(new ContainerSelection());
-    selection_ptr.reset(temp.release());
-}
+ContainerInfoCollection::ContainerInfoCollection(){}
 
-ContainerInfoCollection::~ContainerInfoCollection(){
-    runThread->join();
-}
+ContainerInfoCollection::~ContainerInfoCollection(){}
 
 // 在主函数main中单独创建一个线程运行runContainerInfoCollection函数
-void ContainerInfoCollection::runContainerInfoCollection(){
+void ContainerInfoCollection::collectionContainerInfo(){
     PyObject *pModule, *pFunc;
     PyObject *pValue, *pArgs;
 
@@ -31,11 +25,11 @@ void ContainerInfoCollection::runContainerInfoCollection(){
         }else{
             while(true){
                 time_t sinceTime = time(NULL);
-                time_t untilTime = sinceTime + FOUND_CYCLE;
+                time_t untilTime = sinceTime + foundCycle;
                 pArgs = PyTuple_New(3);
                 PyTuple_SetItem(pArgs, 0, Py_BuildValue("i", sinceTime));
                 PyTuple_SetItem(pArgs, 1, Py_BuildValue("i", untilTime));
-                PyTuple_SetItem(pArgs, 2, Py_BuildValue("i", FOUND_CYCLE));
+                PyTuple_SetItem(pArgs, 2, Py_BuildValue("i", foundCycle));
                 // 调用函数
                 pValue = PyEval_CallObject(pFunc, pArgs);
                 const char *listStr;
@@ -59,9 +53,26 @@ void ContainerInfoCollection::runContainerInfoCollection(){
                         status = jsonRoot["status"].asString();
                         // cout << "id:" << item["id"].asString() << " status:" << item["status"].asString() << endl;
                     }
+                    std::unique_ptr<ContainerSelection> selection_ptr(new ContainerSelection());
                     selection_ptr->adjustContainerList(containerID, status);
                 }
             }
         }
     }
+}
+
+
+void ContainerInfoCollection::setFoundCycle(int cycle){
+    foundCycle = cycle;
+}
+
+
+int ContainerInfoCollection::getFoundCycle(){
+    return foundCycle;
+}
+
+
+void ContainerInfoCollection::runContainerInfoCollection(){
+    std::thread t(ContainerInfoCollection::runContainerInfoCollection, this);
+    t.detach();
 }

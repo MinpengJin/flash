@@ -1,10 +1,7 @@
 #include"ContainerDataCollection.h"
 
 
-ContainerDataCollection::ContainerDataCollection(){
-    std::unique_ptr<Transmission> temp(new Transmission());
-    transmission_ptr.reset(temp.release());
-}
+ContainerDataCollection::ContainerDataCollection(){}
 
 
 ContainerDataCollection::~ContainerDataCollection(){
@@ -175,7 +172,7 @@ float ContainerDataCollection::getCpuLoadAvg(std::string ContainerID){
     unsigned long long preTotalTimeSlice = ContainerDataList[ContainerID].totalTimeSlice;
     unsigned long long nowConTimeSlice = readConTimeSlice(ContainerID);
     unsigned long long nowTotalTimeSlice = readTotalTimeSlice(ContainerID);
-    cpuUsage = ((nowConTimeSlice - preConTimeSlice)/(nowTotalTimeSlice - preTotalTimeSlice))*CORE_NUM*100;
+    cpuUsage = ((nowConTimeSlice - preConTimeSlice)/(nowTotalTimeSlice - preTotalTimeSlice))*getCoreNum()*100;
     ContainerDataList[ContainerID].containerTimeSlice = nowConTimeSlice;
     ContainerDataList[ContainerID].totalTimeSlice = nowTotalTimeSlice;
     return cpuUsage;
@@ -232,6 +229,16 @@ float *ContainerDataCollection::getNetRateAvg(std::string ContainerID){
 }
 
 
+void ContainerDataCollection::setCoreNum(int num){
+    core_num = num;
+}
+
+
+int ContainerDataCollection::getCoreNum(){
+    return core_num;
+}
+
+
 void ContainerDataCollection::updateContainerStatus(std::string ContainerID){
     preContainerData tempStatus;
     tempStatus.preTime = time(NULL);
@@ -264,7 +271,8 @@ void ContainerDataCollection::processData(std::string ContainerID){
     Json::StreamWriterBuilder writerBuilder;
     std::ostringstream os;
     root["cmd"] = "ContainerData";
-
+    
+    item["agentID"] = c_transmission.getAgentID();
     item["ContainerID"] = ContainerID;
     item["Timestamp"] = time(NULL);
     item["CpuLoadAvg"] = getCpuLoadAvg(ContainerID);
@@ -282,9 +290,7 @@ void ContainerDataCollection::processData(std::string ContainerID){
 
     std::unique_ptr<Json::StreamWriter> jsonWriter(writerBuilder.newStreamWriter());
     jsonWriter->write(root, &os);
-    std::string processedData = "ContainerData" + os.str();
-    // 调用传输模块接口，将json数据传输给监控服务器
-    if(!transmission_ptr->connect("ws://localhost:9002")){
-        transmission_ptr->send(processedData);
-    }
+    std::string processedData = os.str();
+    // 调用传输模块，将json数据传输给监控服务器
+    c_transmission->send(processedData);
 }

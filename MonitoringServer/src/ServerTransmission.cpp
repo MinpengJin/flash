@@ -28,7 +28,7 @@ void ServerTransmission::on_open(connection_hdl hdl) {
     Connection newConneciton;
     stringstream ss;
     ss << id;
-    newConneciton.agentID = ss.str()
+    newConneciton.agentID = "x" + ss.str()
     newConneciton.hdl = hdl;
     s_connections.push_back(newConneciton);
     // 创建handler和监控代理id的关系
@@ -40,6 +40,7 @@ void ServerTransmission::on_open(connection_hdl hdl) {
     std::ostringstream os;
 
     root["cmd"] = "id";
+    root["agentID"] = "";
     root["data"] = newConnection.agentID;
     std::unique_ptr<Json::StreamWriter> writer(writerBuilder.newStreamWriter());
     writer->write(root, &os);
@@ -75,13 +76,13 @@ void ServerTransmission::on_message(connection_hdl hdl, server::message_ptr msg)
     // 解析传入数据
     bool res;
     JSONCPP_STRING errs;
-    Json::value root, item;
+    Json::Value root;
     Json::CharReaderBuilder readerBuilder;
     
     std::unique_ptr<Json::CharReader> const jsonReader(readerBuilder.newCharReader());
-    res = jsonReader->parse(message.c_str(), message.c_str()+message.length(), root, errs);
-    if(res || !errs.empty()){
-        std::cout << "parse err: " << errs << endl; 
+    res = jsonReader->parse(message.c_str(), message.c_str()+message.length(), &root, &errs);
+    if(!res || !errs.empty()){
+        std::cout << "parse err: " << errs << std::endl; 
         exit(1);
     }
 
@@ -89,8 +90,26 @@ void ServerTransmission::on_message(connection_hdl hdl, server::message_ptr msg)
     std::string data = root["data"].asString();
     // 判断传入数据类型
     if(cmd=="ContainerData"){
-        // todo: 将数据存入influxdb
+        StorageFormat temp;
+        // 解析data
+        res = jsonReader->parse(data.c_str(), data.c_str() + data.length(), root, errs);
+        if(res || !errs.empty()){
+        std::cout << "data parse err: " << errs << endl; 
+        exit(1);
 
+        // 将数据存入influxdb
+        temp.agentID = root["agentID"].asString();
+        temp.ContainerID = root["ContainerID"].asString();
+        temp.Timestamp = root["Timestamp"].asInt();
+        temp.CpuLoadAvg = root["CpuLoadAvg"].asFloat();
+        temp.MemLoadAvg = root["MemLoadAvg"].asFloat();
+        temp.DiskReadAvg = root["DiskReadAvg"].asFloat();
+        temp.DiskWriteAvg = root["DiskWriteAvg"].asFloat();
+        temp.NetReceiveAvg = root["NetReceiveAvg"].asFloat();
+        temp.NetTransmitAvg = root["NetTransmitAvg"].asFloat();
+        DataStorage dataStorage;
+        dataStorage.storeData(temp);
+    }
     }else if(cmd=="ContainerLogs"){
         // todo：将数据存入mysql
 
