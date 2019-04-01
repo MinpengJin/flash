@@ -13,6 +13,7 @@
 #include <string>
 #include <sstream>
 #include "json/json.h"
+#include "ContainerSelection.h"
 
 typedef websocketpp::client<websocketpp::config::asio_client> client;
 
@@ -22,6 +23,7 @@ typedef websocketpp::client<websocketpp::config::asio_client> client;
  *      接收监控服务器发送的命令
  */
 
+extern std::string agentID;
 
 class connection_metadata {
 private:
@@ -77,7 +79,7 @@ public:
 
             Json::Value jsonRoot;
             Json::CharReaderBuilder readerBuilder;
-            unique_ptr<Json::CharReader> const reader(readerBuilder.newCharReader());
+            std::unique_ptr<Json::CharReader> const reader(readerBuilder.newCharReader());
             JSONCPP_STRING errs;
             bool res = reader->parse(message.c_str(), message.c_str() + message.length(), &jsonRoot, &errs);
             if (!res || !errs.empty()) 
@@ -92,15 +94,16 @@ public:
             // 解析命令
             if(temp_cmd=="CreateID"){
                 // 监控服务器分配给监控代理一个唯一的主机id
-                agentID = data;
+                agentID = temp_data;
             }else {
                 if(temp_agentID == agentID){
                     if(temp_cmd=="GetLogs"){
                         // todo: 日志命令接口
 
-                    }else if(cmd=="ChangeCycle"){
+                    }else if(temp_cmd=="ChangeCycle"){
+                        /*
                         std::stringstream ss;
-                        ss.str(data);
+                        ss.str(temp_data);
                         std::string item;
                         std::vector<std::string> temp;
                         while(getline(ss, item, ':')){
@@ -111,6 +114,7 @@ public:
                         int cycle = atoi(cycleStr.c_str());
                         ContainerSelection sel;
                         sel.adjustContainerCycle(ContainerID, cycle);
+                        */
                     }
                 }
             }
@@ -133,28 +137,30 @@ public:
     }
 };
 
-// 全局变量：监控代理传输模块对象
-extern std::unique_ptr<ClientTransmission> c_transmission;
 
 class ClientTransmission {
 private:
-    std::string agentID;
-    client t_client;
+    client c_client;
     connection_metadata::ptr metadata_ptr;
     websocketpp::lib::shared_ptr<websocketpp::lib::thread> t_thread;
 
 public:
-    ClientTransmission ();
+    ClientTransmission();
     ~ClientTransmission();
     // 初始化传输模块
     void initTransmission();
     // 建立连接，返回1创建失败；返回0创建成功
     int connect(std::string const & uri);
     // 关闭连接
-    inline void close();
+    void close();
     // 发送消息
-    inline void send(std::string message);
+    void send(std::string message);
     // 返回监控代理主机号
-    inline std::string getAgentID();
+    std::string getAgentID(){
+        return agentID;
+    }
 };
+
+// 全局变量：监控代理传输模块对象
+extern std::unique_ptr<ClientTransmission> c_transmission;
 # endif

@@ -1,15 +1,16 @@
 #include "ClientTransmission.h"
 
+std::string agentID;
+
 ClientTransmission::ClientTransmission () {}
 
-
 ClientTransmission::~ClientTransmission() {
-    t_client.stop_perpetual();
+    c_client.stop_perpetual();
     // 如果连接没有关闭，则关闭连接
     if (metadata_ptr->get_status() == "Open") {
         std::cout << " Closing connection! " << std::endl;
         websocketpp::lib::error_code ec;
-        t_client.close(metadata_ptr->get_hdl(), websocketpp::close::status::going_away, "", ec);
+        c_client.close(metadata_ptr->get_hdl(), websocketpp::close::status::going_away, "", ec);
         if (ec) {
             std::cout << "[Client] Error closing connection " << ": "  
                         << ec.message() << std::endl;
@@ -20,21 +21,21 @@ ClientTransmission::~ClientTransmission() {
 }
 
 
-void ClientTransmissin::initTransmission() {
-    t_client.clear_access_channels(websocketpp::log::alevel::all);
-    t_client.clear_error_channels(websocketpp::log::elevel::all);
+void ClientTransmission::initTransmission() {
+    c_client.clear_access_channels(websocketpp::log::alevel::all);
+    c_client.clear_error_channels(websocketpp::log::elevel::all);
     // 初始化传输模块并将其设置为永久模式
-    t_client.init_asio();
-    t_client.start_perpetual();
+    c_client.init_asio();
+    c_client.start_perpetual();
     // 给传输模块创建监听线程
-    t_thread = websocketpp::lib::make_shared<websocketpp::lib::thread>(&client::run, &t_client);
+    t_thread = websocketpp::lib::make_shared<websocketpp::lib::thread>(&client::run, &c_client);
 }
 
 
 int ClientTransmission::connect(std::string const & uri) {
     // 创建一个新的连接
     websocketpp::lib::error_code ec;
-    client::connection_ptr con = t_client.get_connection(uri, ec);
+    client::connection_ptr con = c_client.get_connection(uri, ec);
     if (ec) {
         std::cout << "[Client] Connect initialization error: " << ec.message() << std::endl;
         return 1;
@@ -44,19 +45,19 @@ int ClientTransmission::connect(std::string const & uri) {
     con->set_open_handler(websocketpp::lib::bind(
         &connection_metadata::on_open,
         metadata_ptr,
-        &t_client,
+        &c_client,
         websocketpp::lib::placeholders::_1
     ));
     con->set_fail_handler(websocketpp::lib::bind(
         &connection_metadata::on_fail,
         metadata_ptr,
-        &t_client,
+        &c_client,
         websocketpp::lib::placeholders::_1
     ));
     con->set_close_handler(websocketpp::lib::bind(
         &connection_metadata::on_close,
         metadata_ptr,
-        &t_client,
+        &c_client,
         websocketpp::lib::placeholders::_1
     ));
     con->set_message_handler(websocketpp::lib::bind(
@@ -66,7 +67,7 @@ int ClientTransmission::connect(std::string const & uri) {
         websocketpp::lib::placeholders::_2
     ));
     // 开始给定连接的连接过程
-    t_client.connect(con);
+    c_client.connect(con);
     return 0;
 }
 
@@ -74,7 +75,7 @@ int ClientTransmission::connect(std::string const & uri) {
 void ClientTransmission::close() {
     websocketpp::lib::error_code ec;
     //  关闭连接
-    t_client.close(metadata_ptr->get_hdl(), websocketpp::close::status::going_away, "", ec);
+    c_client.close(metadata_ptr->get_hdl(), websocketpp::close::status::going_away, "", ec);
     if (ec) {
         std::cout << "[Client] Error initiating close: " << ec.message() << std::endl;
         return;
@@ -84,17 +85,14 @@ void ClientTransmission::close() {
 
 void ClientTransmission::send(std::string message) {
     websocketpp::lib::error_code ec;
-    t_client.send(metadata_ptr->get_hdl(), message, websocketpp::frame::opcode::text, ec);
+    c_client.send(metadata_ptr->get_hdl(), message, websocketpp::frame::opcode::text, ec);
     if (ec) {
         std::cout << "[Client] Error sending message: " << ec.message() << std::endl;
         return;
     }
 }
 
-
-std::string ClientTransmission::getAgentID(){
-    return agentID;
-}
+std::unique_ptr<ClientTransmission> c_transmission;
 
 /* 
  *----test----

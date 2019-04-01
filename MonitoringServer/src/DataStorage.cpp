@@ -1,13 +1,18 @@
 #include "DataStorage.h"
 
+bool ControllerTabExist = false;
+influxdb_cpp::server_info client("127.0.0.1", 8086, "Docker_monitor");
+std::unique_ptr<DataStorage> dataStorage;
+
 DataStorage::DataStorage(){
-    this->createControllerTab();
+    if(!ControllerTabExist){
+        this->createControllerTab();
+    }
 }
 
 DataStorage::~DataStorage(){}
 
 void DataStorage::createControllerTab(){
-    influxdb_cpp::server_info client("127.0.0.1", 8086, "Docker_monitor");
     time_t nowTime = time(NULL);
     std::string resp;
     int ret = influxdb_cpp::builder()
@@ -25,7 +30,7 @@ void DataStorage::createControllerTab(){
 }
 
 void DataStorage::storeData(StorageFormat data){
-    influxdb_cpp::server_info client("127.0.0.1", 8086, "Docker_monitor");
+    // influxdb_cpp::server_info client("127.0.0.1", 8086, "Docker_monitor");
     if(!ControllerTabExist){
         createControllerTab();
     }
@@ -133,7 +138,7 @@ void DataStorage::storeData(StorageFormat data){
 
 
 void DataStorage::scanControllerTab(){
-    influxdb_cpp::server_info client("127.0.0.1", 8086, "Docker_monitor");
+    // influxdb_cpp::server_info client("127.0.0.1", 8086, "Docker_monitor");
     while(true){
         std::string resp;
         std::string queryStatement = "select * from ControllerTable";
@@ -178,3 +183,4 @@ void DataStorage::runDataController(){
     std::thread t(&DataStorage::scanControllerTab, this);
     t.detach();
 }
+

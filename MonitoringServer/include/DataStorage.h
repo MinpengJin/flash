@@ -22,7 +22,6 @@ struct StorageFormat{
     float NetTransmitAvg;
 };
 
-extern bool ControllerTabExist = false;
 
 class DataStorage {
 public:
@@ -34,5 +33,9 @@ public:
     void scanControllerTab();
     void runDataController();
 };
+
+extern bool ControllerTabExist;
+extern influxdb_cpp::server_info client;
+extern std::unique_ptr<DataStorage> dataStorage;
 
 #endif

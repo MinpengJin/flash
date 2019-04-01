@@ -41,13 +41,13 @@ void ContainerInfoCollection::collectionContainerInfo(){
                     std::string containerID, status;
                     Json::Value jsonRoot;
                     Json::CharReaderBuilder readerBuilder;
-                    unique_ptr<Json::CharReader> const reader(readerBuilder.newCharReader());
+                    std::unique_ptr<Json::CharReader> const reader(readerBuilder.newCharReader());
                     JSONCPP_STRING errs;
                     bool res = reader->parse(item.c_str(), item.c_str() + item.length(), &jsonRoot, &errs);
                     if (!res || !errs.empty()) 
                     {
                         std::cerr << "parse Json error! " << errs << std::endl;
-                        Exit(-1);
+                        exit(1);
                     }else{
                         containerID = jsonRoot["id"].asString();
                         status = jsonRoot["status"].asString();
@@ -73,6 +73,6 @@ int ContainerInfoCollection::getFoundCycle(){
 
 
 void ContainerInfoCollection::runContainerInfoCollection(){
-    std::thread t(ContainerInfoCollection::runContainerInfoCollection, this);
+    std::thread t(&ContainerInfoCollection::runContainerInfoCollection, this);
     t.detach();
 }

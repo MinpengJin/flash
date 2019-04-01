@@ -1,8 +1,9 @@
 #include"ContainerDataCollection.h"
 
+std::map<std::string, preContainerData> ContainerDataList;       
+std::mutex ContainerDataList_lock; 
 
 ContainerDataCollection::ContainerDataCollection(){}
-
 
 ContainerDataCollection::~ContainerDataCollection(){
     if(fs.is_open()){
@@ -31,11 +32,11 @@ void ContainerDataCollection::closeFile(){
 }
 
 
-std::vector<string> ContainerDataCollection::split(const char *buffer){
+std::vector<std::string> ContainerDataCollection::split(const char *buffer){
     std::stringstream ss;
     ss.str(buffer);
     std::string item;
-    std::vector<string> elems;
+    std::vector<std::string> elems;
     while(ss >> item){
         elems.push_back(item);
     }
@@ -136,7 +137,7 @@ std::string ContainerDataCollection::getConPID(std::string ContainerID){
             PyArg_Parse(pValue, "i", &temp);
             std::stringstream ss;
             ss << temp;
-            pid = temp.str();
+            pid = ss.str();
         }
         Py_Finalize(); 
     }
@@ -171,7 +172,7 @@ float ContainerDataCollection::getCpuLoadAvg(std::string ContainerID){
     unsigned long long preConTimeSlice = ContainerDataList[ContainerID].containerTimeSlice;
     unsigned long long preTotalTimeSlice = ContainerDataList[ContainerID].totalTimeSlice;
     unsigned long long nowConTimeSlice = readConTimeSlice(ContainerID);
-    unsigned long long nowTotalTimeSlice = readTotalTimeSlice(ContainerID);
+    unsigned long long nowTotalTimeSlice = readTotalTimeSlice();
     cpuUsage = ((nowConTimeSlice - preConTimeSlice)/(nowTotalTimeSlice - preTotalTimeSlice))*getCoreNum()*100;
     ContainerDataList[ContainerID].containerTimeSlice = nowConTimeSlice;
     ContainerDataList[ContainerID].totalTimeSlice = nowTotalTimeSlice;
@@ -243,7 +244,7 @@ void ContainerDataCollection::updateContainerStatus(std::string ContainerID){
     preContainerData tempStatus;
     tempStatus.preTime = time(NULL);
     tempStatus.containerTimeSlice = readConTimeSlice(ContainerID);
-    tempStatus.totalTimeSlice = readTotalTimeSlice(ContainerID);
+    tempStatus.totalTimeSlice = readTotalTimeSlice();
     unsigned long long *diskData = readDiskData(ContainerID);
     tempStatus.diskRead = diskData[0];
     tempStatus.diskWrite = diskData[1];
@@ -272,16 +273,17 @@ void ContainerDataCollection::processData(std::string ContainerID){
     std::ostringstream os;
     root["cmd"] = "ContainerData";
     
-    item["agentID"] = c_transmission.getAgentID();
+    item["agentID"] = c_transmission->getAgentID();
     item["ContainerID"] = ContainerID;
-    item["Timestamp"] = time(NULL);
+    int nowTime = time(NULL);
+    item["Timestamp"] = nowTime;
     item["CpuLoadAvg"] = getCpuLoadAvg(ContainerID);
     item["MemLoadAvg"] = getMemLoadAvg(ContainerID);
     float *diskRate = getDiskRateAvg(ContainerID);
     item["DiskReadAvg"] = diskRate[0];
     item["DiskWriteAvg"] = diskRate[1];
     delete[] diskRate;
-    float *netRate = getNetRateAvg();
+    float *netRate = getNetRateAvg(ContainerID);
     item["NetReceiveAvg"] = netRate[0];
     item["NetTransmitAvg"] = netRate[1];
     delete[] netRate;

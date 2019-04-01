@@ -1,5 +1,8 @@
 #include"ContainerSelection.h"
 
+std::vector<ContainerItem> ContainerList;
+std::mutex ContainerList_lock;
+
 ContainerSelection::ContainerSelection(){}
 
 ContainerSelection::~ContainerSelection(){}
@@ -59,7 +62,7 @@ void ContainerSelection::selectContainer(){
                 ContainerList_lock.unlock();
                 // 将ContainerID传入数据搜集模块
                 ContainerDataCollection temp; 
-                std::thread t(&ContainerDataCollection::peocessData, &temp, ContainerID);
+                std::thread t(&ContainerDataCollection::processData, &temp, ContainerID);
                 t.detach();
             }
         }else{

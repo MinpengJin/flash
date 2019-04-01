@@ -1,10 +1,6 @@
 #ifndef CONTAINERINFOCOLLECTION_H
 #define CONTAINERINFOCOLLECTION_H
 
-#include <Python.h>
-#include <sstream>
-#include <algorithm>
-#include "json/json.h"
 #include "ContainerSelection.h"
 
 /*

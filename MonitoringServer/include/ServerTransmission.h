@@ -2,15 +2,14 @@
 #define SERVERTRANSMISSION_H
 
 #include <websocketpp/config/asio_no_tls.hpp>
-#include <websocketpp/common/thread.hpp>
 #include <websocketpp/server.hpp>
+#include <websocketpp/common/thread.hpp>
 
-#include <iostream>
+
 #include <vector>
 #include <map>
 #include <sstream>
 #include "json/json.h"
-#include "DataStorage.h"
 
 typedef websocketpp::server<websocketpp::config::asio> server;
 
@@ -34,7 +33,7 @@ using websocketpp::lib::condition_variable;
 struct Connection
 {
     std::string agentID;
-    websocketpp::connection_hdl hdl;
+    connection_hdl hdl;
 };
 
 

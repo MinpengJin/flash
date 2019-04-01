@@ -5,35 +5,35 @@ ServerTransmission::ServerTransmission(uint16_t port) {
     m_server.init_asio();
 
     // Register handler callbacks
-    m_server.set_open_handler(bind(&broadcast_server::on_open,this,::_1));
-    m_server.set_close_handler(bind(&broadcast_server::on_close,this,::_1));
-    m_server.set_message_handler(bind(&broadcast_server::on_message,this,::_1,::_2));
+    m_server.set_open_handler(bind(&ServerTransmission::on_open,this,::_1));
+    m_server.set_close_handler(bind(&ServerTransmission::on_close,this,::_1));
+    m_server.set_message_handler(bind(&ServerTransmission::on_message,this,::_1,::_2));
 
     // listen on specified port
     m_server.listen(port);
     // Start the server accept loop
     m_server.start_accept();
     // Start the ASIO io_service run loop
-    s_thread(bind(&server::run, &m_server);
+    s_thread = websocketpp::lib::make_shared<websocketpp::lib::thread>(&server::run, &m_server);
 }
 
 
 ServerTransmission::~ServerTransmission(){
-    s_thread.join();
+    s_thread->join();
 }
 
 
 void ServerTransmission::on_open(connection_hdl hdl) {
     // 将新打开的连接添加到s_connections
-    Connection newConneciton;
-    stringstream ss;
+    Connection newConnection;
+    std::stringstream ss;
     ss << id;
-    newConneciton.agentID = "x" + ss.str()
-    newConneciton.hdl = hdl;
-    s_connections.push_back(newConneciton);
-    // 创建handler和监控代理id的关系
-    link[newConneciton.hdl] = newConneciton.agentID;
+    newConnection.agentID = "x" + ss.str();
+    newConnection.hdl = hdl;
+    s_connections.push_back(newConnection);
     id++;
+    // 创建handler和监控代理id的关系
+    // link[newConnection.hdl] = newConnection.agentID;
     // 将数据转化成json格式
     Json::Value root;
     Json::StreamWriterBuilder writerBuilder;
@@ -56,6 +56,7 @@ void ServerTransmission::on_open(connection_hdl hdl) {
 
 
 void ServerTransmission::on_close(connection_hdl hdl) {
+    /*
     std::string agentID = link[hdl];
     // 删除s_connections中对应的连接
     auto it = s_connections.begin();
@@ -68,11 +69,16 @@ void ServerTransmission::on_close(connection_hdl hdl) {
     // 删除hadler和监控代理id的关系
     auto it_link = link.find(hdl);
     link.erase(it_link);
+    */
 }
 
 
 void ServerTransmission::on_message(connection_hdl hdl, server::message_ptr msg) {
     std::string message = msg->get_payload();
+
+    // for test
+    std::cout<<"get msg from client: "<<message<<std::endl;
+
     // 解析传入数据
     bool res;
     JSONCPP_STRING errs;
@@ -92,9 +98,9 @@ void ServerTransmission::on_message(connection_hdl hdl, server::message_ptr msg)
     if(cmd=="ContainerData"){
         StorageFormat temp;
         // 解析data
-        res = jsonReader->parse(data.c_str(), data.c_str() + data.length(), root, errs);
+        res = jsonReader->parse(data.c_str(), data.c_str() + data.length(), &root, &errs);
         if(res || !errs.empty()){
-        std::cout << "data parse err: " << errs << endl; 
+        std::cout << "data parse err: " << errs << std::endl; 
         exit(1);
 
         // 将数据存入influxdb
@@ -107,8 +113,7 @@ void ServerTransmission::on_message(connection_hdl hdl, server::message_ptr msg)
         temp.DiskWriteAvg = root["DiskWriteAvg"].asFloat();
         temp.NetReceiveAvg = root["NetReceiveAvg"].asFloat();
         temp.NetTransmitAvg = root["NetTransmitAvg"].asFloat();
-        DataStorage dataStorage;
-        dataStorage.storeData(temp);
+        dataStorage->storeData(temp);
     }
     }else if(cmd=="ContainerLogs"){
         // todo：将数据存入mysql
@@ -120,7 +125,7 @@ void ServerTransmission::on_message(connection_hdl hdl, server::message_ptr msg)
 }
 
 
-void ServerTransmission::sendMessage(agentID) {
+void ServerTransmission::sendMessage(std::string agentID) {
     // todo: 监控服务器向监控代理传输数据的接口
 
 }

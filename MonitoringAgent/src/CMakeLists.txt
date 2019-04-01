@@ -1,6 +1,6 @@
 SET(SRC_LIST ContainerSelection.cpp ContainerDataCollection.cpp ContainerInfoCollection.cpp main.cpp ClientTransmission.cpp)
 
-INCLUDE_DIRECTORIES(../include /usr/lib/python3.6)
+INCLUDE_DIRECTORIES(../include /usr/include/python3.6m)
 LINK_DIRECTORIES(/usr/lib/python3.6 ../lib)
 
 ADD_EXECUTABLE(monitoringAgent ${SRC_LIST})
