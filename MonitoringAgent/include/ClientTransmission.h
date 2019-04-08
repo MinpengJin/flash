@@ -95,6 +95,8 @@ public:
             if(temp_cmd=="CreateID"){
                 // 监控服务器分配给监控代理一个唯一的主机id
                 agentID = temp_data;
+
+                std::cout << "[ClientTransmission] agentID=" << agentID << std::endl;
             }else {
                 if(temp_agentID == agentID){
                     if(temp_cmd=="GetLogs"){
@@ -143,7 +145,6 @@ private:
     client c_client;
     connection_metadata::ptr metadata_ptr;
     websocketpp::lib::shared_ptr<websocketpp::lib::thread> t_thread;
-
 public:
     ClientTransmission();
     ~ClientTransmission();
@@ -156,9 +157,7 @@ public:
     // 发送消息
     void send(std::string message);
     // 返回监控代理主机号
-    std::string getAgentID(){
-        return agentID;
-    }
+    std::string getAgentID();
 };
 
 // 全局变量：监控代理传输模块对象

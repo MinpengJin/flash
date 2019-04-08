@@ -1,64 +1,47 @@
 #include"ContainerInfoCollection.h"
 
 ContainerInfoCollection::ContainerInfoCollection(){}
-
 ContainerInfoCollection::~ContainerInfoCollection(){}
 
-// 在主函数main中单独创建一个线程运行runContainerInfoCollection函数
+
 void ContainerInfoCollection::collectionContainerInfo(){
-    PyObject *pModule, *pFunc;
-    PyObject *pValue, *pArgs;
-
+    // 初始化python解释器
     Py_Initialize();
-    if(!Py_IsInitialized()){
-        std::cerr << "initialize failed!" << std::endl;
-        exit(1);
-    }else{
-        PyRun_SimpleString("import sys");
-        PyRun_SimpleString("sys.path.append('../src/python')");
+    CallPython call;
+    call.importModule();
+    while(true){
+        const char *listStr = call.getConInfo(foundCycle);
+        // 解析python返回的数据
+        std::stringstream ss;
+        ss.str(listStr);
+        std::string item;
+        while(getline(ss, item, ';')){
+            std::string containerID, status;
+            Json::Value jsonRoot;
+            Json::CharReaderBuilder readerBuilder;
+            std::unique_ptr<Json::CharReader> const reader(readerBuilder.newCharReader());
+            JSONCPP_STRING errs;
+            bool res = reader->parse(item.c_str(), item.c_str() + item.length(), &jsonRoot, &errs);
+            if (!res || !errs.empty()) 
+            {
+                std::cerr << "parse Json error! " << errs << std::endl;
+                exit(1);
+            }
+            containerID = jsonRoot["id"].asString();
+            status = jsonRoot["status"].asString();
 
-        pModule = PyImport_ImportModule("containerInfo");
-        pFunc = PyObject_GetAttrString(pModule, "getContainerInfo");
-        if(!pFunc || !PyCallable_Check(pFunc)){
-            std::cerr << "can't find function!" << std::endl;
-            exit(1);
-        }else{
-            while(true){
-                time_t sinceTime = time(NULL);
-                time_t untilTime = sinceTime + foundCycle;
-                pArgs = PyTuple_New(3);
-                PyTuple_SetItem(pArgs, 0, Py_BuildValue("i", sinceTime));
-                PyTuple_SetItem(pArgs, 1, Py_BuildValue("i", untilTime));
-                PyTuple_SetItem(pArgs, 2, Py_BuildValue("i", foundCycle));
-                // 调用函数
-                pValue = PyEval_CallObject(pFunc, pArgs);
-                const char *listStr;
-                PyArg_Parse(pValue, "s", &listStr);
-                std::stringstream ss;
-                ss.str(listStr);
-                std::string item;
-                while(getline(ss, item, ';')){
-                    std::string containerID, status;
-                    Json::Value jsonRoot;
-                    Json::CharReaderBuilder readerBuilder;
-                    std::unique_ptr<Json::CharReader> const reader(readerBuilder.newCharReader());
-                    JSONCPP_STRING errs;
-                    bool res = reader->parse(item.c_str(), item.c_str() + item.length(), &jsonRoot, &errs);
-                    if (!res || !errs.empty()) 
-                    {
-                        std::cerr << "parse Json error! " << errs << std::endl;
-                        exit(1);
-                    }else{
-                        containerID = jsonRoot["id"].asString();
-                        status = jsonRoot["status"].asString();
-                        // cout << "id:" << item["id"].asString() << " status:" << item["status"].asString() << endl;
-                    }
-                    std::unique_ptr<ContainerSelection> selection_ptr(new ContainerSelection());
-                    selection_ptr->adjustContainerList(containerID, status);
-                }
+            if(containerID!="null"){
+                // --test--
+                std::cout << "[collectionContainerInfo] containerID:" 
+                <<  containerID << " status:" << status << std::endl;
+
+                std::unique_ptr<ContainerSelection> selection_ptr(new ContainerSelection());
+                selection_ptr->adjustContainerList(containerID, status);
             }
         }
     }
+    // 关闭python解释器
+    Py_Finalize();
 }
 
 
@@ -73,6 +56,6 @@ int ContainerInfoCollection::getFoundCycle(){
 
 
 void ContainerInfoCollection::runContainerInfoCollection(){
-    std::thread t(&ContainerInfoCollection::runContainerInfoCollection, this);
-    t.detach();
+    std::thread t(&ContainerInfoCollection::collectionContainerInfo, this);
+     t.detach();
 }

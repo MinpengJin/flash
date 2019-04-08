@@ -17,8 +17,6 @@
  *      同时该模块接收输出模块发送的监控周期调整信息
  */
 
-// 容器监控周期
-const int COLLECT_CYCLE = 3;              
 
 // 待监控容器队列元素
 struct ContainerItem
@@ -32,13 +30,14 @@ struct ContainerItem
     }
 };
 
-// 全局变量：待监控容器队列
-extern std::vector<ContainerItem> ContainerList;      
-extern std::mutex ContainerList_lock;  
 
 class ContainerSelection{
 private:                               
+    // 默认容器监控周期
+    int COLLECT_CYCLE = 3;         
 
+    static std::vector<ContainerItem> ContainerList; 
+    static std::mutex ContainerList_lock;  
 public:
     ContainerSelection();
     ~ContainerSelection();
@@ -51,6 +50,8 @@ public:
     void selectContainer();               
     // 创建线程运行监控容器选择程序
     void runContainerSelection();
+
+    void showList();
 };
 
 #endif

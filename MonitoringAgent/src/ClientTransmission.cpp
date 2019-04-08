@@ -3,7 +3,6 @@
 std::string agentID;
 
 ClientTransmission::ClientTransmission () {}
-
 ClientTransmission::~ClientTransmission() {
     c_client.stop_perpetual();
     // 如果连接没有关闭，则关闭连接
@@ -92,36 +91,10 @@ void ClientTransmission::send(std::string message) {
     }
 }
 
-std::unique_ptr<ClientTransmission> c_transmission;
-
-/* 
- *----test----
-int main(){
-    ClientTransmission trans;
-    std::string uri;
-    std::cout << "> please input the uri:";
-    std::cin >> uri;
-    while(trans.connect(uri)){
-        std::cout << "> please input the uri again:";
-        std::cin >> uri;
-    }
-    std::string cmd;
-    bool flag = true;
-    while(flag){
-        std::cout << "> please input the command:";
-        std::cin >> cmd;
-        if(cmd == "quit"){
-            flag = false;
-        }else if(cmd == "message"){
-            std::string message;
-            std::cout << "> please input the message:";
-            std::cin >> message;
-            trans.send(message);
-        }else{
-            std::cout << "> Unrecognized Command";
-        }
-    }
-    trans.close();
-    return 0;
+std::string ClientTransmission::getAgentID(){
+    return agentID;
 }
-*/
+
+std::unique_ptr<ClientTransmission> c_transmission(new ClientTransmission());
+
+

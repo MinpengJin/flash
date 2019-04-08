@@ -34,12 +34,13 @@ void ServerTransmission::on_open(connection_hdl hdl) {
     id++;
     // 创建handler和监控代理id的关系
     // link[newConnection.hdl] = newConnection.agentID;
+
     // 将数据转化成json格式
     Json::Value root;
     Json::StreamWriterBuilder writerBuilder;
     std::ostringstream os;
 
-    root["cmd"] = "id";
+    root["cmd"] = "CreateID";
     root["agentID"] = "";
     root["data"] = newConnection.agentID;
     std::unique_ptr<Json::StreamWriter> writer(writerBuilder.newStreamWriter());
@@ -76,13 +77,15 @@ void ServerTransmission::on_close(connection_hdl hdl) {
 void ServerTransmission::on_message(connection_hdl hdl, server::message_ptr msg) {
     std::string message = msg->get_payload();
 
-    // for test
+    /*
+     * for test
+     */
     std::cout<<"get msg from client: "<<message<<std::endl;
 
     // 解析传入数据
     bool res;
     JSONCPP_STRING errs;
-    Json::Value root;
+    Json::Value root, data;
     Json::CharReaderBuilder readerBuilder;
     
     std::unique_ptr<Json::CharReader> const jsonReader(readerBuilder.newCharReader());
@@ -93,34 +96,26 @@ void ServerTransmission::on_message(connection_hdl hdl, server::message_ptr msg)
     }
 
     std::string cmd = root["cmd"].asString();
-    std::string data = root["data"].asString();
     // 判断传入数据类型
     if(cmd=="ContainerData"){
+        data = root["data"];
         StorageFormat temp;
-        // 解析data
-        res = jsonReader->parse(data.c_str(), data.c_str() + data.length(), &root, &errs);
-        if(res || !errs.empty()){
-        std::cout << "data parse err: " << errs << std::endl; 
-        exit(1);
-
         // 将数据存入influxdb
-        temp.agentID = root["agentID"].asString();
-        temp.ContainerID = root["ContainerID"].asString();
-        temp.Timestamp = root["Timestamp"].asInt();
-        temp.CpuLoadAvg = root["CpuLoadAvg"].asFloat();
-        temp.MemLoadAvg = root["MemLoadAvg"].asFloat();
-        temp.DiskReadAvg = root["DiskReadAvg"].asFloat();
-        temp.DiskWriteAvg = root["DiskWriteAvg"].asFloat();
-        temp.NetReceiveAvg = root["NetReceiveAvg"].asFloat();
-        temp.NetTransmitAvg = root["NetTransmitAvg"].asFloat();
-        dataStorage->storeData(temp);
-    }
+        temp.agentID = data["agentID"].asString();
+        temp.ContainerID = data["ContainerID"].asString();
+        temp.Timestamp = data["Timestamp"].asInt();
+        temp.CpuLoadAvg = data["CpuLoadAvg"].asFloat();
+        temp.MemLoadAvg = data["MemLoadAvg"].asFloat();
+        temp.DiskReadAvg = data["DiskReadAvg"].asFloat();
+        temp.DiskWriteAvg = data["DiskWriteAvg"].asFloat();
+        temp.NetReceiveAvg = data["NetReceiveAvg"].asFloat();
+        temp.NetTransmitAvg = data["NetTransmitAvg"].asFloat();
+
+        DataStorage dataStorage;
+        dataStorage.storeData(temp);
     }else if(cmd=="ContainerLogs"){
         // todo：将数据存入mysql
 
-    }else{
-        std::cout << "[server] Unable to parse data format!" << std::endl;
-        return;
     }
 }
 

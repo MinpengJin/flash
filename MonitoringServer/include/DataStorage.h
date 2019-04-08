@@ -28,14 +28,10 @@ public:
     DataStorage();
     ~DataStorage();
 
-    void createControllerTab();
+    // void createControllerTab();
     void storeData(StorageFormat data);
     void scanControllerTab();
     void runDataController();
 };
-
-extern bool ControllerTabExist;
-extern influxdb_cpp::server_info client;
-extern std::unique_ptr<DataStorage> dataStorage;
 
 #endif

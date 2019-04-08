@@ -3,8 +3,10 @@
 int main(){
     // 创建监控服务器传输模块实例
     ServerTransmission s_transmission(9002);
+
     // 运行数据库存储控制功能
-    dataStorage->runDataController();
+    DataStorage dataStorage;
+    dataStorage.runDataController();
 
     while(true){}
     return 0;

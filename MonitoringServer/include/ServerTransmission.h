@@ -9,6 +9,7 @@
 #include <vector>
 #include <map>
 #include <sstream>
+#include "DataStorage.h"
 #include "json/json.h"
 
 typedef websocketpp::server<websocketpp::config::asio> server;

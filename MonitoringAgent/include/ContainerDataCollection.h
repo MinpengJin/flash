@@ -1,6 +1,7 @@
 #ifndef DATACOLLECTION_H
 #define DATACOLLECTION_H
 
+#include "Python.h"
 #include <fstream>
 #include <ctime>
 #include <string>
@@ -10,8 +11,8 @@
 #include <sstream>
 #include <stdlib.h>
 #include <mutex>
-#include "Python.h"
 #include "json/json.h"
+#include "CallPython.h"
 #include "ClientTransmission.h"
 
 /*
@@ -42,20 +43,17 @@ struct ProcessedData{
     float NetTransmitAvg;
 };
 
-// 全局变量 ：记录容器上一个监控周期的监控数据
-extern std::map<std::string, preContainerData> ContainerDataList;       
-extern std::mutex ContainerDataList_lock;      
 
 class ContainerDataCollection{
 private:
-    int core_num = 1;                                                    // 宿主机CPU核数
-    std::fstream fs;     
+    bool hasError = false;
+    // 记录容器上一个监控周期的监控数据    
+    static std::map<std::string, preContainerData> ContainerDataList;
+    static std::mutex ContainerDataList_lock;
 
-    void openFile(std::string fileName);                                // 打开指定文件
-    void closeFile();                                                   // 关闭当前打开的文件
+    int core_num = 1;                                                    // 宿主机CPU核数
 
     std::vector<std::string> split(const char* buffer);                 // 以空格为分隔符来分割字符串
-    std::string getConPID(std::string ContainerID);                     // 获取指定容器id的容器进程号
 
     unsigned long long readSimpleData(std::string fileName);            // 读取不需要进行分割处理的文件数据流
     unsigned long long readConTimeSlice(std::string ContainerID);       // 读取容器使用CPU时间片
@@ -78,7 +76,7 @@ public:
     int getCoreNum();
 
     // 监控容器选择模块接口
-    void updateContainerStatus(std::string ContainerID);                // 添加或者更新指定的容器状态到容器状态列表中
+    void initContainerStatus(std::string ContainerID);                  // 添加或者更新指定的容器状态到容器状态列表中
     void eraseContainerStatus(std::string ContainerID);                 // 在容器状态列表中删除指定容器状态
     // 处理监控数据，将其转换成Json格式
     void processData(std::string ContainerID);                          // 将指定容器的监控数据转换成json格式

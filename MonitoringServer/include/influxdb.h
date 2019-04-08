@@ -6,6 +6,9 @@
 
   Please see LICENSE file or visit https://github.com/orca-zhang/influxdb-cpp for details.
  */
+#ifndef INFLUXDB_H
+#define INFLUXDB_H
+
 #include <sstream>
 #include <cstring>
 #include <cstdio>
@@ -29,6 +32,9 @@
     #include <arpa/inet.h>
     #define closesocket close
 #endif
+
+namespace{
+
 
 namespace influxdb_cpp {
     struct server_info {
@@ -298,3 +304,6 @@ namespace influxdb_cpp {
         }
     }
 }
+
+}
+#endif

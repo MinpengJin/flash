@@ -1,45 +1,17 @@
 #include "DataStorage.h"
 
-bool ControllerTabExist = false;
-influxdb_cpp::server_info client("127.0.0.1", 8086, "Docker_monitor");
-std::unique_ptr<DataStorage> dataStorage;
+static bool ControllerTabExist = false;
+static influxdb_cpp::server_info client("127.0.0.1", 8086, "Docker_monitor");
 
-DataStorage::DataStorage(){
-    if(!ControllerTabExist){
-        this->createControllerTab();
-    }
-}
+DataStorage::DataStorage(){}
 
 DataStorage::~DataStorage(){}
 
-void DataStorage::createControllerTab(){
-    time_t nowTime = time(NULL);
-    std::string resp;
-    int ret = influxdb_cpp::builder()
-            .meas("ControllerTable")
-            .tag("agentID", "x")
-            .tag("ContainerID", "y")
-            .field("lines", 0)
-            .timestamp(nowTime)
-            .post_http(client, &resp);
-    if(ret){
-        std::cout << resp << std::endl;
-    }else{
-        ControllerTabExist = true;
-    }
-}
-
 void DataStorage::storeData(StorageFormat data){
-    // influxdb_cpp::server_info client("127.0.0.1", 8086, "Docker_monitor");
-    if(!ControllerTabExist){
-        createControllerTab();
-    }
     // 查找存储控制表，判断当前agentID和ContainerID是否已经存在
     std::string resp;
-    std::string agentID = data.agentID;
-    std::string ContainerID = data.ContainerID;
     std::string queryStatement = "select * from ControllerTable where agentID='"
-                 + agentID +"' and ContainerID='" + ContainerID + "'";
+                 + data.agentID +"' and ContainerID='" + data.ContainerID + "'";
     influxdb_cpp::query(resp, queryStatement, client);
     time_t timestamp = time(NULL);
     // 解析查询结果
@@ -60,9 +32,10 @@ void DataStorage::storeData(StorageFormat data){
         // 当前agentID和ContainerID不存在
         int ret = influxdb_cpp::builder()
             .meas("ControllerTable")
-            .tag("agentID", agentID)
-            .tag("ContainerID", ContainerID)
+            .tag("agentID", data.agentID)
+            .tag("ContainerID", data.ContainerID)
             .field("lines", 1)
+            .field("Timestamp", timestamp)
             .timestamp(timestamp)
             .post_http(client, &resp);
         if(ret){
@@ -70,13 +43,18 @@ void DataStorage::storeData(StorageFormat data){
         }
     }else{
         // 当前agentID和ContainerID存在，获取当前行数并加一
+        std::string queryStatement = "delete from ControllerTable where agentID='"
+                 + data.agentID +"' and ContainerID='" + data.ContainerID + "'";
+        influxdb_cpp::query(resp, queryStatement, client);
+
         values = series[0]["values"];
-        int nowLines = values[0][2].asInt() + 1;
+        int nowLines = values[0][4].asInt() + 1;
         int ret = influxdb_cpp::builder()
             .meas("ControllerTable")
-            .tag("agentID", agentID)
-            .tag("ContainerID", ContainerID)
+            .tag("agentID", data.agentID)
+            .tag("ContainerID", data.ContainerID)
             .field("lines", nowLines)
+            .field("Timestamp", timestamp)
             .timestamp(timestamp)
             .post_http(client, &resp);
         if(ret){
@@ -84,8 +62,8 @@ void DataStorage::storeData(StorageFormat data){
         }
         if(nowLines == 100){
             // 查询并解析agentID表中相应ContainerID的数据
-            queryStatement = "select * from " + agentID + 
-                        "where ContainerID='" + ContainerID + "'";
+            queryStatement = "select * from " + data.agentID + 
+                        "where ContainerID='" + data.ContainerID + "'";
             influxdb_cpp::query(resp, queryStatement, client);
             res = jsonReader->parse(resp.c_str(), resp.c_str()+resp.length(), &root, &errs);
             if(!res || !errs.empty()){
@@ -101,8 +79,8 @@ void DataStorage::storeData(StorageFormat data){
 
             }
         }else if(nowLines > 100 && nowLines % 10 == 0){
-            queryStatement = "select * from " + agentID + 
-                        "where ContainerID='" + ContainerID + "'";
+            queryStatement = "select * from " + data.agentID + 
+                        "where ContainerID='" + data.ContainerID + "'";
             influxdb_cpp::query(resp, queryStatement, client);
             res = jsonReader->parse(resp.c_str(), resp.c_str()+resp.length(), &root, &errs);
             if(!res || !errs.empty()){
@@ -129,6 +107,7 @@ void DataStorage::storeData(StorageFormat data){
             .field("DiskWriteAvg", data.DiskWriteAvg)
             .field("NetReceiveAvg", data.NetReceiveAvg)
             .field("NetTransmitAvg", data.NetTransmitAvg)
+            .field("Timestamp", data.Timestamp)
             .timestamp(data.Timestamp)
             .post_http(client, &resp);
     if(ret){
@@ -138,11 +117,11 @@ void DataStorage::storeData(StorageFormat data){
 
 
 void DataStorage::scanControllerTab(){
-    // influxdb_cpp::server_info client("127.0.0.1", 8086, "Docker_monitor");
     while(true){
         std::string resp;
         std::string queryStatement = "select * from ControllerTable";
         influxdb_cpp::query(resp, queryStatement, client);
+
         bool res;
         JSONCPP_STRING errs;
         Json::Value root, results, item, series, values;
@@ -156,22 +135,24 @@ void DataStorage::scanControllerTab(){
         results = root["results"];
         item = results[0];
         series = item["series"];
-        for(int i = 0; i < series.size(); i++){
-            values = series[i]["values"];
+        if(!series.empty()){
+            values = series[0]["values"];
             time_t nowTime = time(NULL);
-            // todo: 需要进一步确认数据对应关系
-            time_t timestamp = values[0][0].asInt();
-            std::string ContainerID = values[0][1].asString();
-            std::string agentID = values[0][2].asString();
-            if(nowTime - timestamp >= 600){
-                // 删除ControllerTable表中对应的行
-                queryStatement = "delete from ControllerTable where agentID='"
-                    + agentID + "' and ContainerID=" + ContainerID + "'";
-                influxdb_cpp::query(resp, queryStatement, client);
-                // 删除agentID表中对应的ContainerID行
-                queryStatement = "delete from " + agentID + " where ContainerID='"
-                    + ContainerID + "'";
-                influxdb_cpp::query(resp, queryStatement, client);
+            for(int i = 0; i < values.size(); i++){
+                std::string ContainerID = values[i][1].asString();
+                time_t timestamp = values[i][2].asInt();
+                std::string agentID = values[i][3].asString();
+
+                if(nowTime - timestamp >= 600){
+                    // 删除ControllerTable表中对应的行
+                    queryStatement = "delete from ControllerTable where ContainerID='"
+                        + ContainerID + "' and agentID='" + agentID + "'";
+                    influxdb_cpp::query(resp, queryStatement, client);
+                    // 删除agentID表中对应的ContainerID行
+                    queryStatement = "delete from " + agentID + " where ContainerID='"
+                        + ContainerID + "'";
+                    influxdb_cpp::query(resp, queryStatement, client);
+                }
             }
         }
         sleep(600);

@@ -2,10 +2,11 @@ import sys
 import time
 import docker
 import ast
-import _thread
+import threading
 
-containerList = []
 client = docker.APIClient(base_url='unix://var/run/docker.sock')
+startList = []
+stopList = []
 
 # 收集在指定时间内启动的容器
 def start(sinceTime, untilTime):
@@ -13,23 +14,23 @@ def start(sinceTime, untilTime):
 	for event in events:
 		eventDict = ast.literal_eval(event.decode())
 		temp = {'status':eventDict['status'], 'id':eventDict['id']}
-		containerList.append(temp)
+		startList.append(temp)
 	events.close()
 
-# 收集在指定容器内关闭的容器
+# 收集在指定时间内关闭的容器
 def stop(sinceTime, untilTime):
 	events = client.events(since=sinceTime, until=untilTime, filters={'event': 'stop'})
 	for event in events:
 		eventDict = ast.literal_eval(event.decode())
 		temp = {'status':eventDict['status'], 'id':eventDict['id']}
 		hasStopped = False
-		for index in containerList:
+		for index in startList:
 			if temp['id'] == index['id']:
-				containerList.pop(containerList.index(index))
+				startList.pop(startList.index(index))
 				hasStopped = True
 				break
 		if not hasStopped:
-			containerList.append(temp)
+			stopList.append(temp)
 	events.close()
 
 # 将收集的容器信息转换成jsoncpp能够解析的字符串格式
@@ -40,15 +41,34 @@ def toString(containerItem):
 	return itemStr
 
 
-def getContinerInfo(sinceTime, untilTime, FOUND_CYCLE):
-	try:
-		_thread.start_new_thread(start, (sinceTime, untilTime))
-		_thread.start_new_thread(stop, (sinceTime, untilTime))
-	except:
-		print("can't create thread!")
-	time.sleep(FOUND_CYCLE)
+def getContainerInfo(sinceTime, untilTime, FOUND_CYCLE):
+	startList.clear()
+	stopList.clear()
+	# 启动线程
+	t1 = threading.Thread(target=start, args=(sinceTime, untilTime))
+	t2 = threading.Thread(target=stop, args=(sinceTime, untilTime))
+	t1.start()
+	t2.start()
+	t1.join()
+	t2.join()
+
 	listStr = ""
-	for i in range(len(containerList)-1):
-		listStr += toString(containerList[i] + ";")
-	listStr += toString(containerList[len(containerList)-1])
+	if len(startList) > 0 or len(stopList) > 0:
+		if len(startList) > 0:
+			for i in range(len(startList)-1):
+				listStr += toString(startList[i])+";"
+			listStr += toString(startList[len(startList)-1])
+		if len(stopList) > 0:
+			for i in range(len(stopList)-1):
+				listStr += toString(stopList[i])+";"
+			listStr += toString(stopList[len(stopList)-1])
+	else:
+		listStr += '{\"id\":\"'+"null"+'\",\"status\":\"'+"null"+'\"}'
 	return listStr
+
+
+# 获取指定容器的进程号
+def getContainerPID(containerID):
+    containerData = client.inspect_container(containerID)
+    pid = containerData["State"]["Pid"]
+    return pid
